@@ -1,0 +1,483 @@
+import { motion } from 'framer-motion';
+import { ChefHat, Pencil, Timer, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type TouchEvent } from 'react';
+import { useHorizontalSwipe } from '../../hooks/useHorizontalSwipe';
+import { useLongPress } from '../../hooks/useLongPress';
+import { usePinchToClose } from '../../hooks/usePinchToClose';
+import { useRecipeStore, type RecipeInput } from '../../store/useRecipeStore';
+import type { Recipe } from '../../types/models';
+import { formatCookedDate } from '../../utils/recipes';
+
+interface RecipeScreenProps {
+  recipe: Recipe;
+  onClose: () => void;
+}
+
+const INGREDIENT_RAIL_WIDTH = 88;
+
+interface IngredientItemProps {
+  item: string;
+  isDone: boolean;
+  showActions: boolean;
+  onSwipeLeft: () => void;
+  onSwipeRight: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}
+
+const IngredientItem = ({
+  item,
+  isDone,
+  showActions,
+  onSwipeLeft,
+  onSwipeRight,
+  onEdit,
+  onDelete
+}: IngredientItemProps): JSX.Element => {
+  const [railOpen, setRailOpen] = useState(false);
+  const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    if (!showActions) {
+      setRailOpen(false);
+    }
+  }, [showActions]);
+
+  const onTouchStart = (event: TouchEvent<HTMLElement>) => {
+    if (event.touches.length !== 1) {
+      swipeStartRef.current = null;
+      return;
+    }
+
+    const touch = event.touches[0];
+    swipeStartRef.current = { x: touch.clientX, y: touch.clientY };
+  };
+
+  const onTouchEnd = (event: TouchEvent<HTMLElement>) => {
+    const start = swipeStartRef.current;
+    swipeStartRef.current = null;
+
+    if (!start || event.changedTouches.length !== 1) {
+      return;
+    }
+
+    const touch = event.changedTouches[0];
+    const deltaX = touch.clientX - start.x;
+    const deltaY = Math.abs(touch.clientY - start.y);
+
+    if (deltaY > Math.abs(deltaX) * 1.1) {
+      return;
+    }
+
+    if (deltaX <= -48) {
+      setRailOpen(true);
+      onSwipeLeft();
+      return;
+    }
+
+    if (deltaX >= 54) {
+      onSwipeRight();
+      setRailOpen(false);
+      return;
+    }
+
+    if (Math.abs(deltaX) < 12 && railOpen) {
+      setRailOpen(false);
+    }
+  };
+
+  return (
+    <li className="recipe-item-shell">
+      <div className="recipe-item-rail" aria-hidden={!railOpen}>
+        <button type="button" className="recipe-swipe-action" aria-label="Edit ingredient" onClick={onEdit}>
+          <Pencil size={14} />
+        </button>
+        <button type="button" className="recipe-swipe-action" aria-label="Delete ingredient" onClick={onDelete}>
+          <Trash2 size={14} />
+        </button>
+      </div>
+      <div
+        className={`recipe-item-row ${isDone ? 'is-done' : ''}`}
+        style={{ transform: railOpen ? `translateX(-${INGREDIENT_RAIL_WIDTH}px)` : 'translateX(0)' }}
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+        onTouchCancel={() => {
+          swipeStartRef.current = null;
+        }}
+      >
+        <span className="recipe-item-text">{item}</span>
+      </div>
+    </li>
+  );
+};
+
+interface StepItemProps {
+  item: string;
+  isDone: boolean;
+  onSwipeRight: () => void;
+}
+
+const StepItem = ({ item, isDone, onSwipeRight }: StepItemProps): JSX.Element => {
+  const swipe = useHorizontalSwipe({
+    onSwipeRight,
+    threshold: 48
+  });
+
+  return (
+    <li
+      className={`recipe-step-item ${isDone ? 'is-done' : ''}`}
+      onTouchStart={swipe.onTouchStart}
+      onTouchMove={swipe.onTouchMove}
+      onTouchEnd={swipe.onTouchEnd}
+      onTouchCancel={swipe.onTouchCancel}
+    >
+      {item}
+    </li>
+  );
+};
+
+export const RecipeScreen = ({ recipe, onClose }: RecipeScreenProps): JSX.Element => {
+  const contentRef = useRef<HTMLDivElement | null>(null);
+
+  const [peekPanel, setPeekPanel] = useState<'ingredients' | 'notes' | 'timer' | null>(null);
+  const [timerMinutes, setTimerMinutes] = useState(10);
+  const [timerEndsAt, setTimerEndsAt] = useState<number | null>(null);
+  const [timerNow, setTimerNow] = useState(() => Date.now());
+  const [timerDurationMs, setTimerDurationMs] = useState<number | null>(null);
+  const [ingredientDone, setIngredientDone] = useState<boolean[]>([]);
+  const [stepDone, setStepDone] = useState<boolean[]>([]);
+  const [ingredientRailIndex, setIngredientRailIndex] = useState<number | null>(null);
+
+  const updateRecipe = useRecipeStore((state) => state.updateRecipe);
+
+  const pinch = usePinchToClose({
+    onPinchOut: onClose,
+    direction: 'in',
+    threshold: 42
+  });
+
+  const titleLongPress = useLongPress({
+    onLongPress: onClose
+  });
+
+  const hasHeroImage = Boolean(recipe.imageUrl);
+  const lastCookedLabel = useMemo(() => formatCookedDate(recipe.lastCooked), [recipe.lastCooked]);
+
+  useEffect(() => {
+    if (!timerEndsAt) {
+      return;
+    }
+
+    const timerId = window.setInterval(() => {
+      setTimerNow(Date.now());
+    }, 1000);
+
+    return () => window.clearInterval(timerId);
+  }, [timerEndsAt]);
+
+  useEffect(() => {
+    if (timerEndsAt && timerNow >= timerEndsAt) {
+      setTimerEndsAt(null);
+      setTimerDurationMs(null);
+    }
+  }, [timerEndsAt, timerNow]);
+
+  const remainingSeconds = timerEndsAt ? Math.max(0, Math.ceil((timerEndsAt - timerNow) / 1000)) : 0;
+  const remainingMinutes = Math.floor(remainingSeconds / 60);
+  const remainingDisplaySeconds = remainingSeconds % 60;
+  const remainingMs = timerEndsAt ? Math.max(0, timerEndsAt - timerNow) : 0;
+  const timerProgress =
+    timerDurationMs && timerDurationMs > 0 ? Math.min(1, Math.max(0, 1 - remainingMs / timerDurationMs)) : 0;
+
+  const startTimer = () => {
+    const minutes = Number.isFinite(timerMinutes) ? Math.max(1, Math.floor(timerMinutes)) : 1;
+    setTimerMinutes(minutes);
+    const durationMs = minutes * 60 * 1000;
+    setTimerDurationMs(durationMs);
+    setTimerEndsAt(Date.now() + durationMs);
+  };
+
+  const stopTimer = () => {
+    setTimerEndsAt(null);
+    setTimerDurationMs(null);
+  };
+
+  useEffect(() => {
+    setIngredientDone((prev) =>
+      recipe.ingredients.map((_, index) => prev[index] ?? false)
+    );
+  }, [recipe.ingredients.length]);
+
+  useEffect(() => {
+    setStepDone((prev) => recipe.steps.map((_, index) => prev[index] ?? false));
+  }, [recipe.steps.length]);
+
+  useEffect(() => {
+    setIngredientDone(recipe.ingredients.map(() => false));
+    setStepDone(recipe.steps.map(() => false));
+    setIngredientRailIndex(null);
+  }, [recipe.id]);
+
+  const buildRecipeInput = (overrides: Partial<RecipeInput>): RecipeInput => ({
+    title: recipe.title,
+    imageUrl: recipe.imageUrl,
+    ingredients: recipe.ingredients,
+    steps: recipe.steps,
+    tags: recipe.tags,
+    prepTime: recipe.prepTime,
+    cookTime: recipe.cookTime,
+    notes: recipe.notes,
+    lastCooked: recipe.lastCooked,
+    ...overrides
+  });
+
+  const toggleIngredientDone = (index: number) => {
+    setIngredientDone((prev) => prev.map((value, idx) => (idx === index ? !value : value)));
+    setIngredientRailIndex(null);
+  };
+
+  const toggleStepDone = (index: number) => {
+    setStepDone((prev) => prev.map((value, idx) => (idx === index ? !value : value)));
+  };
+
+  const handleIngredientSwipeLeft = (index: number) => {
+    setIngredientRailIndex(index);
+  };
+
+  const handleEditIngredient = (index: number) => {
+    const current = recipe.ingredients[index];
+    const next = window.prompt('Edit ingredient', current);
+    if (next === null) {
+      return;
+    }
+    const trimmed = next.trim();
+    if (!trimmed) {
+      return;
+    }
+    const updated = recipe.ingredients.map((item, idx) => (idx === index ? trimmed : item));
+    updateRecipe(recipe.id, buildRecipeInput({ ingredients: updated }));
+    setIngredientRailIndex(null);
+  };
+
+  const handleDeleteIngredient = (index: number) => {
+    const updated = recipe.ingredients.filter((_, idx) => idx !== index);
+    updateRecipe(recipe.id, buildRecipeInput({ ingredients: updated }));
+    setIngredientDone((prev) => prev.filter((_, idx) => idx !== index));
+    setIngredientRailIndex(null);
+  };
+
+  return (
+    <motion.section
+      className="recipe-shell screen-layer"
+      initial={{ opacity: 0, x: 18 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -18 }}
+      onTouchStart={(event) => {
+        pinch.onTouchStart(event);
+      }}
+      onTouchMove={(event) => {
+        pinch.onTouchMove(event);
+      }}
+      onTouchEnd={() => {
+        pinch.onTouchEnd();
+      }}
+      onTouchCancel={() => {
+        pinch.onTouchCancel();
+      }}
+    >
+      <header className="recipe-header">
+        <div className="recipe-title-row">
+          <h1
+            onPointerDown={titleLongPress.onPointerDown}
+            onPointerUp={titleLongPress.onPointerUp}
+            onPointerCancel={titleLongPress.onPointerCancel}
+            onPointerLeave={titleLongPress.onPointerLeave}
+          >
+            {recipe.title || 'Untitled recipe'}
+          </h1>
+        </div>
+        <div className="recipe-meta-row">
+          <div className="recipe-tag-row">
+            {recipe.tags.length ? recipe.tags.map((tag) => <span key={tag}>{tag}</span>) : <span>No tag</span>}
+          </div>
+          <span className="recipe-title-meta">Last cooked: {lastCookedLabel}</span>
+        </div>
+      </header>
+
+      <div className="recipe-content" ref={contentRef}>
+        <div className="recipe-hero">
+          <div
+            className={`recipe-hero-image ${hasHeroImage ? 'has-image' : ''}`}
+            role="presentation"
+            style={hasHeroImage ? { backgroundImage: `url(${recipe.imageUrl})` } : undefined}
+          />
+          <div className="recipe-timing">
+            <div>
+              <span className="muted">Prep</span>
+              <strong>{recipe.prepTime || '—'}</strong>
+            </div>
+            <div>
+              <span className="muted">Cook</span>
+              <strong>{recipe.cookTime || '—'}</strong>
+            </div>
+          </div>
+        </div>
+
+        <section className="recipe-section">
+          <h2>Ingredients</h2>
+          {recipe.ingredients.length ? (
+            <ul className="recipe-ingredients-list">
+              {recipe.ingredients.map((item, index) => (
+                <IngredientItem
+                  key={`${item}-${index}`}
+                  item={item}
+                  isDone={ingredientDone[index]}
+                  showActions={ingredientRailIndex === index}
+                  onSwipeLeft={() => handleIngredientSwipeLeft(index)}
+                  onSwipeRight={() => toggleIngredientDone(index)}
+                  onEdit={() => handleEditIngredient(index)}
+                  onDelete={() => handleDeleteIngredient(index)}
+                />
+              ))}
+            </ul>
+          ) : (
+            <p className="muted">No ingredients yet.</p>
+          )}
+        </section>
+
+        <section className="recipe-section">
+          <h2>Steps</h2>
+          {recipe.steps.length ? (
+            <ol className="recipe-steps-list">
+              {recipe.steps.map((item, index) => (
+                <StepItem
+                  key={`${item}-${index}`}
+                  item={item}
+                  isDone={stepDone[index]}
+                  onSwipeRight={() => toggleStepDone(index)}
+                />
+              ))}
+            </ol>
+          ) : (
+            <p className="muted">No steps yet.</p>
+          )}
+        </section>
+
+        <section className="recipe-section">
+          <h2>Notes</h2>
+          {recipe.notes.trim() ? <p>{recipe.notes}</p> : <p className="muted">No notes yet.</p>}
+        </section>
+      </div>
+
+      <div className="recipe-nav">
+        <button type="button" onClick={() => setPeekPanel('ingredients')}>
+          Ingredients
+        </button>
+        <button type="button" onClick={() => setPeekPanel('notes')}>
+          Notes
+        </button>
+        <button type="button" className="recipe-nav-icon recipe-nav-spacer" aria-label="Cook mode">
+          <ChefHat size={16} />
+        </button>
+        <button type="button" className="recipe-nav-icon" onClick={() => setPeekPanel('timer')} aria-label="Timer">
+          {timerEndsAt ? (
+            <span className="timer-dial" style={{ '--progress': timerProgress } as CSSProperties}>
+              <span className="timer-dial-inner" />
+            </span>
+          ) : (
+            <Timer size={16} />
+          )}
+        </button>
+      </div>
+
+      {peekPanel ? (
+        <div
+          className="recipe-peek-overlay"
+          onClick={() => {
+            setPeekPanel(null);
+          }}
+        >
+          <div
+            className="recipe-peek-card"
+            onClick={(event) => {
+              event.stopPropagation();
+            }}
+          >
+            {peekPanel === 'ingredients' ? (
+              <>
+                <h3>Ingredients</h3>
+                {recipe.ingredients.length ? (
+                  <ul className="recipe-peek-list">
+                    {recipe.ingredients.map((item, index) => (
+                      <li
+                        key={`${item}-${index}`}
+                        className={ingredientDone[index] ? 'is-done' : undefined}
+                      >
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="muted">No ingredients yet.</p>
+                )}
+              </>
+            ) : null}
+
+            {peekPanel === 'notes' ? (
+              <>
+                <h3>Notes</h3>
+                {recipe.notes.trim() ? <p>{recipe.notes}</p> : <p className="muted">No notes yet.</p>}
+              </>
+            ) : null}
+
+            {peekPanel === 'timer' ? (
+              <>
+                <h3>Timer</h3>
+                {timerEndsAt ? (
+                  <div className="timer-readout">
+                    <strong>
+                      {remainingMinutes}:{remainingDisplaySeconds.toString().padStart(2, '0')}
+                    </strong>
+                    <button type="button" className="ghost-button" onClick={stopTimer}>
+                      Stop
+                    </button>
+                  </div>
+                ) : (
+                  <div className="timer-controls">
+                    <label className="form-field">
+                      <span className="field-label">Minutes</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={240}
+                        value={timerMinutes}
+                        onChange={(event) => setTimerMinutes(Number(event.target.value))}
+                        className="list-input"
+                      />
+                    </label>
+                    <div className="timer-presets">
+                      {[5, 10, 15, 20].map((minutes) => (
+                        <button
+                          key={minutes}
+                          type="button"
+                          className="ghost-button"
+                          onClick={() => setTimerMinutes(minutes)}
+                        >
+                          {minutes}m
+                        </button>
+                      ))}
+                    </div>
+                    <button type="button" className="solid-button" onClick={startTimer}>
+                      Start timer
+                    </button>
+                  </div>
+                )}
+              </>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+    </motion.section>
+  );
+};
