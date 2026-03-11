@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { RecipeDeckScreen } from './components/recipe/RecipeDeckScreen';
 import { RecipeEmptyState } from './components/recipe/RecipeEmptyState';
 import { RecipeImportSheet, type RecipeImportPayload } from './components/recipe/RecipeImportSheet';
+import { RecipeSearchScreen } from './components/recipe/RecipeSearchScreen';
 import { RecipeScreen } from './components/recipe/RecipeScreen';
 import {
   RecipeStagingScreen,
@@ -53,6 +54,8 @@ const AppContent = (): JSX.Element => {
   const [editingRecipeId, setEditingRecipeId] = useState<string | null>(null);
   const [isParsing, setIsParsing] = useState(false);
   const [pendingImageRecipeId, setPendingImageRecipeId] = useState<string | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const imageInputRef = useRef<HTMLInputElement | null>(null);
 
   useWakeLock();
@@ -217,6 +220,26 @@ const AppContent = (): JSX.Element => {
         .filter((recipe): recipe is Recipe => Boolean(recipe))
     : recipes;
 
+  const handleSearchImport = async (url: string): Promise<boolean> => {
+    try {
+      const parsed = await parseRecipeImport({ url });
+      createRecipe({
+        title: parsed.title,
+        imageUrl: parsed.imageUrl,
+        ingredients: parsed.ingredients,
+        steps: parsed.steps,
+        tags: parsed.tags,
+        prepTime: parsed.prepTime,
+        cookTime: parsed.cookTime,
+        notes: parsed.notes,
+        lastCooked: null
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   return (
     <main className="app-shell">
       <AnimatePresence mode="sync" initial={false}>
@@ -247,6 +270,9 @@ const AppContent = (): JSX.Element => {
               setActiveRecipe(recipeId);
               closeDeck();
             }}
+            onOpenSearch={() => setSearchOpen(true)}
+            searchQuery={searchQuery}
+            onSearchQueryChange={setSearchQuery}
             onMoveRecipe={moveActiveRecipeBy}
             onImport={openImport}
             onEdit={(recipe) => handleEditRecipe(recipe)}
@@ -255,6 +281,16 @@ const AppContent = (): JSX.Element => {
             onRequestImage={handleRequestImage}
             onClearImagePrompt={clearImagePrompt}
             showImportFab={!importOpen}
+          />
+        ) : null}
+
+        {searchOpen ? (
+          <RecipeSearchScreen
+            key="search"
+            query={searchQuery}
+            onQueryChange={setSearchQuery}
+            onClose={() => setSearchOpen(false)}
+            onImportUrl={handleSearchImport}
           />
         ) : null}
 

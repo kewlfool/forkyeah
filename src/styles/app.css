@@ -2059,6 +2059,111 @@ textarea {
   text-align: right;
 }
 
+.search-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.search-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.search-results {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: grid;
+  gap: 12px;
+  padding-bottom: 90px;
+}
+
+.search-result-card {
+  border: 1px solid var(--stroke);
+  border-radius: 18px;
+  background: var(--surface);
+  display: grid;
+  grid-template-columns: 84px 1fr;
+  gap: 12px;
+  padding: 12px;
+  text-align: left;
+}
+
+.search-result-thumb {
+  width: 84px;
+  height: 84px;
+  border-radius: 14px;
+  background: var(--surface-soft);
+  border: 1px solid var(--stroke);
+  background-size: cover;
+  background-position: center;
+}
+
+.search-result-body {
+  display: grid;
+  gap: 6px;
+}
+
+.search-result-body strong {
+  font-size: 0.95rem;
+}
+
+.search-result-body span {
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+}
+
+.search-result-body em {
+  font-size: 0.7rem;
+  color: var(--ink-soft);
+}
+
+.search-bottom-bar {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 0;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.search-empty {
+  text-align: center;
+  padding: 20px 0;
+}
+
+.search-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 15, 15, 0.2);
+  display: grid;
+  place-items: center;
+  z-index: 40;
+  padding: 18px;
+}
+
+.search-confirm-card {
+  width: min(360px, 100%);
+  background: var(--surface);
+  border-radius: 18px;
+  border: 1px solid var(--stroke);
+  padding: 16px;
+  display: grid;
+  gap: 10px;
+  text-align: left;
+}
+
+.search-confirm-card h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.search-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 .cook-mode-button {
   position: fixed;
   left: 50%;

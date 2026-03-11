@@ -1,5 +1,8 @@
 import base64
+import json
+import os
 from typing import List, Optional
+from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from fastapi import FastAPI, HTTPException, Query
@@ -48,6 +51,8 @@ def safe_call(func, default=None):
 
 IMAGE_MAX_BYTES = 2_500_000
 IMAGE_USER_AGENT = "Mozilla/5.0 (compatible; forkyeah/1.0; +https://forkyeah.app)"
+SEARXNG_URL = os.getenv("SEARXNG_URL", "").rstrip("/")
+SEARCH_USER_AGENT = "Mozilla/5.0 (compatible; forkyeah-search/1.0; +https://forkyeah.app)"
 
 
 def fetch_image_data_url(url: str) -> str:
@@ -120,3 +125,42 @@ def scrape_recipe(url: str = Query(..., min_length=5)):
         "rawContent": "\n\n".join(raw_sections),
         "sourceLabel": url,
     }
+
+
+@app.get("/api/search")
+def search_recipes(q: str = Query(..., min_length=2), limit: int = Query(10, ge=1, le=20)):
+    if not SEARXNG_URL:
+        raise HTTPException(status_code=501, detail="Search not configured")
+
+    params = {
+        "q": q,
+        "format": "json",
+    }
+    url = f"{SEARXNG_URL}/search?{urlencode(params)}"
+
+    try:
+        request = Request(url, headers={"User-Agent": SEARCH_USER_AGENT, "Accept": "application/json"})
+        with urlopen(request, timeout=12) as response:
+            payload = response.read().decode("utf-8")
+        data = json.loads(payload)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Search failed: {exc}") from exc
+
+    results = []
+    for item in data.get("results", [])[:limit]:
+        title = (item.get("title") or item.get("url") or "").strip()
+        link = (item.get("url") or "").strip()
+        thumbnail = (item.get("thumbnail") or item.get("img_src") or "").strip()
+        snippet = (item.get("content") or item.get("summary") or "").strip()
+        if not link:
+            continue
+        results.append(
+            {
+                "title": title or link,
+                "url": link,
+                "thumbnail": thumbnail,
+                "snippet": snippet,
+            }
+        )
+
+    return {"query": q, "results": results}

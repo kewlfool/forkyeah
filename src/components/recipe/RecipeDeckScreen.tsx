@@ -12,6 +12,9 @@ interface RecipeDeckScreenProps {
   activeRecipe: Recipe;
   viewMode: RecipeViewMode;
   onOpenRecipe: (recipeId: string) => void;
+  onOpenSearch: () => void;
+  searchQuery: string;
+  onSearchQueryChange: (value: string) => void;
   onMoveRecipe: (offset: 1 | -1) => void;
   onImport: () => void;
   onEdit: (recipe: Recipe) => void;
@@ -57,6 +60,9 @@ export const RecipeDeckScreen = ({
   activeRecipe,
   viewMode,
   onOpenRecipe,
+  onOpenSearch,
+  searchQuery,
+  onSearchQueryChange,
   onMoveRecipe,
   onImport,
   onEdit,
@@ -593,6 +599,9 @@ export const RecipeDeckScreen = ({
           className="deck-search-input"
           placeholder="Search recipes"
           aria-label="Search recipes"
+          value={searchQuery}
+          onChange={(event) => onSearchQueryChange(event.target.value)}
+          onFocus={onOpenSearch}
         />
         {showImportFab ? (
           <button
