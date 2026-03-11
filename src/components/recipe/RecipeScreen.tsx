@@ -1,12 +1,12 @@
 import { motion } from 'framer-motion';
-import { ChefHat, Pencil, Timer, Trash2 } from 'lucide-react';
+import { ChefHat, Pencil, Share2, StickyNote, Timer, Trash2, Utensils } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type TouchEvent } from 'react';
 import { useHorizontalSwipe } from '../../hooks/useHorizontalSwipe';
 import { useLongPress } from '../../hooks/useLongPress';
 import { usePinchToClose } from '../../hooks/usePinchToClose';
 import { useRecipeStore, type RecipeInput } from '../../store/useRecipeStore';
 import type { Recipe } from '../../types/models';
-import { formatCookedDate } from '../../utils/recipes';
+import { exportRecipeToPdf } from '../../utils/recipePdf';
 
 interface RecipeScreenProps {
   recipe: Recipe;
@@ -138,6 +138,8 @@ const StepItem = ({ item, isDone, onSwipeRight }: StepItemProps): JSX.Element =>
 
 export const RecipeScreen = ({ recipe, onClose }: RecipeScreenProps): JSX.Element => {
   const contentRef = useRef<HTMLDivElement | null>(null);
+  const navIconSize = 18;
+  const [nowTick, setNowTick] = useState(() => Date.now());
 
   const [peekPanel, setPeekPanel] = useState<'ingredients' | 'notes' | 'timer' | null>(null);
   const [timerMinutes, setTimerMinutes] = useState(10);
@@ -159,9 +161,43 @@ export const RecipeScreen = ({ recipe, onClose }: RecipeScreenProps): JSX.Elemen
   const titleLongPress = useLongPress({
     onLongPress: onClose
   });
+  const navLongPress = useLongPress({
+    onLongPress: onClose
+  });
 
   const hasHeroImage = Boolean(recipe.imageUrl);
-  const lastCookedLabel = useMemo(() => formatCookedDate(recipe.lastCooked), [recipe.lastCooked]);
+  const lastCookedLabel = useMemo(() => {
+    if (!recipe.lastCooked) {
+      return 'Last cooked: Never';
+    }
+    const cookedDate = new Date(recipe.lastCooked);
+    const now = new Date(nowTick);
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const startOfCooked = new Date(
+      cookedDate.getFullYear(),
+      cookedDate.getMonth(),
+      cookedDate.getDate()
+    ).getTime();
+    const dayDiff = Math.max(0, Math.round((startOfToday - startOfCooked) / (24 * 60 * 60 * 1000)));
+    if (dayDiff === 0) {
+      return 'Cooked: Today';
+    }
+    if (dayDiff === 1) {
+      return 'Cooked: Yesterday';
+    }
+    return `Last cooked: ${cookedDate.toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    })}`;
+  }, [nowTick, recipe.lastCooked]);
+
+  useEffect(() => {
+    const timerId = window.setInterval(() => {
+      setNowTick(Date.now());
+    }, 60000);
+    return () => window.clearInterval(timerId);
+  }, []);
 
   useEffect(() => {
     if (!timerEndsAt) {
@@ -295,12 +331,29 @@ export const RecipeScreen = ({ recipe, onClose }: RecipeScreenProps): JSX.Elemen
           >
             {recipe.title || 'Untitled recipe'}
           </h1>
+          <button
+            type="button"
+            className="plain-icon-button"
+            aria-label="Share recipe"
+            onClick={() => exportRecipeToPdf(recipe)}
+          >
+            <Share2 size={16} />
+          </button>
         </div>
         <div className="recipe-meta-row">
           <div className="recipe-tag-row">
             {recipe.tags.length ? recipe.tags.map((tag) => <span key={tag}>{tag}</span>) : <span>No tag</span>}
           </div>
-          <span className="recipe-title-meta">Last cooked: {lastCookedLabel}</span>
+          <button
+            type="button"
+            className="recipe-title-meta recipe-cooked-button"
+            onClick={() => {
+              updateRecipe(recipe.id, buildRecipeInput({ lastCooked: Date.now() }));
+            }}
+            aria-label="Update last cooked date"
+          >
+            {lastCookedLabel}
+          </button>
         </div>
       </header>
 
@@ -369,23 +422,44 @@ export const RecipeScreen = ({ recipe, onClose }: RecipeScreenProps): JSX.Elemen
         </section>
       </div>
 
-      <div className="recipe-nav">
-        <button type="button" onClick={() => setPeekPanel('ingredients')}>
-          Ingredients
+      <div
+        className="recipe-nav"
+        onPointerDown={navLongPress.onPointerDown}
+        onPointerUp={navLongPress.onPointerUp}
+        onPointerCancel={navLongPress.onPointerCancel}
+        onPointerLeave={navLongPress.onPointerLeave}
+      >
+        <button
+          type="button"
+          className="recipe-nav-icon"
+          onClick={() => setPeekPanel('ingredients')}
+          aria-label="Ingredients"
+        >
+          <Utensils size={navIconSize} />
         </button>
-        <button type="button" onClick={() => setPeekPanel('notes')}>
-          Notes
+        <button
+          type="button"
+          className="recipe-nav-icon"
+          onClick={() => setPeekPanel('notes')}
+          aria-label="Notes"
+        >
+          <StickyNote size={navIconSize} />
         </button>
         <button type="button" className="recipe-nav-icon recipe-nav-spacer" aria-label="Cook mode">
-          <ChefHat size={16} />
+          <ChefHat size={navIconSize} />
         </button>
-        <button type="button" className="recipe-nav-icon" onClick={() => setPeekPanel('timer')} aria-label="Timer">
+        <button
+          type="button"
+          className="recipe-nav-icon"
+          onClick={() => setPeekPanel('timer')}
+          aria-label="Timer"
+        >
           {timerEndsAt ? (
             <span className="timer-dial" style={{ '--progress': timerProgress } as CSSProperties}>
               <span className="timer-dial-inner" />
             </span>
           ) : (
-            <Timer size={16} />
+            <Timer size={navIconSize} />
           )}
         </button>
       </div>

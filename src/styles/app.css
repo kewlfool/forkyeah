@@ -1132,6 +1132,28 @@ textarea {
   transform-origin: center;
 }
 
+.recipe-row-card .recipe-card-delete {
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.recipe-row-share {
+  position: absolute;
+  top: 50%;
+  right: 44px;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid var(--stroke);
+  background: var(--surface);
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 4;
+  transform: translateY(-50%);
+}
+
 .recipe-row-content {
   flex: 1;
   min-width: 0;
@@ -1164,7 +1186,7 @@ textarea {
 }
 
 .recipe-deck-shell {
-  padding-bottom: calc(env(safe-area-inset-bottom) + 90px);
+  padding-bottom: 0;
 }
 
 .recipe-deck {
@@ -1180,14 +1202,15 @@ textarea {
 .recipe-scroll-view {
   flex: 1;
   min-height: 0;
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-  padding: calc(env(safe-area-inset-top) + 12px) 18px calc(env(safe-area-inset-bottom) + 12px);
-  touch-action: pan-x;
+  padding: calc(env(safe-area-inset-top) + 12px) 18px calc(env(safe-area-inset-bottom) + 18px);
+  touch-action: pan-y;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   scrollbar-width: none;
+  perspective: 1200px;
 }
 
 .recipe-scroll-view::-webkit-scrollbar {
@@ -1196,29 +1219,30 @@ textarea {
 
 .recipe-scroll-stack {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   align-items: center;
   gap: 0;
-  padding: 10px 0;
-  width: max-content;
-  height: 100%;
+  padding: 10px 0 60px;
+  width: 100%;
+  height: max-content;
+  transform-style: preserve-3d;
 }
 
 .recipe-scroll-card {
-  --scroll-card-height: min(93vh, 652px);
-  --scroll-card-width: min(520px, 84vw);
-  --scroll-overlap: min(calc(0.77 * var(--scroll-card-height)), calc(0.77 * var(--scroll-card-width)));
+  --scroll-card-height: min(46vh, 380px);
+  --scroll-card-width: min(520px, 88vw);
+  --scroll-overlap: calc(0.7 * var(--scroll-card-height));
   width: var(--scroll-card-width);
-  flex: 0 0 var(--scroll-card-width);
+  flex: 0 0 var(--scroll-card-height);
   height: var(--scroll-card-height);
   min-height: 350px;
-  margin-left: calc(-1 * var(--scroll-overlap));
+  margin-top: calc(-1 * var(--scroll-overlap));
   box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
-  touch-action: pan-x;
+  touch-action: pan-y;
 }
 
 .recipe-scroll-card:first-child {
-  margin-left: 0;
+  margin-top: 0;
 }
 
 .recipe-card-stack {
@@ -1227,6 +1251,59 @@ textarea {
   height: min(60vh, 420px);
   min-height: 260px;
   overflow: visible;
+  perspective: 1200px;
+  transform-style: preserve-3d;
+}
+
+
+.deck-bottom-bar {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 0;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  z-index: 80;
+}
+
+.deck-search-input {
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--stroke);
+  font-size: 0.85rem;
+  color: var(--ink);
+}
+
+.deck-search-input::placeholder {
+  color: var(--ink-soft);
+}
+
+.deck-view-button {
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  border: 1px solid var(--stroke);
+  background: var(--surface);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.deck-import-button {
+  position: static;
+  transform: none;
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  box-shadow: none;
 }
 
 .recipe-card {
@@ -1244,10 +1321,21 @@ textarea {
   padding: 18px;
   touch-action: pan-y;
   cursor: pointer;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
 }
 
 .recipe-scroll-card.recipe-card {
-  touch-action: pan-x;
+  touch-action: pan-y;
+  transform:
+    translateZ(var(--scroll-depth, 0px))
+    translateY(var(--scroll-lift, 0px))
+    rotateX(var(--scroll-tilt-x, 0deg))
+    rotateY(var(--scroll-tilt-y, 0deg));
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  will-change: transform;
+  opacity: var(--scroll-opacity, 1);
 }
 
 .recipe-card.recipe-card-back {
@@ -1255,6 +1343,7 @@ textarea {
   inset: 0;
   pointer-events: none;
   box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+  transform-style: flat;
 }
 
 .recipe-card-back-prev {
@@ -1273,7 +1362,9 @@ textarea {
 
 .recipe-card-jiggle {
   border-color: rgb(221, 51, 103);
-  box-shadow: 0 0 0 1px rgb(221, 51, 103);
+  box-shadow: none;
+  outline: 1px solid rgb(221, 51, 103);
+  outline-offset: 0;
 }
 
 .recipe-card-inner {
@@ -1302,6 +1393,22 @@ textarea {
 .recipe-card-delete {
   position: absolute;
   top: 10px;
+  right: 10px;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid var(--stroke);
+  background: var(--surface);
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 4;
+}
+
+.recipe-card-share {
+  position: absolute;
+  bottom: 10px;
   right: 10px;
   width: 28px;
   height: 28px;
@@ -1427,10 +1534,6 @@ textarea {
 }
 
 .import-fab {
-  position: fixed;
-  left: 50%;
-  bottom: calc(env(safe-area-inset-bottom) + 14px);
-  transform: translateX(-50%);
   width: 56px;
   height: 56px;
   border-radius: 999px;
@@ -1440,7 +1543,6 @@ textarea {
   align-items: center;
   justify-content: center;
   color: var(--ink);
-  z-index: 70;
 }
 
 .staging-shell {
@@ -1726,13 +1828,15 @@ textarea {
 }
 
 .recipe-nav-icon {
-  width: 34px;
-  height: 34px;
+  width: 38px;
+  height: 38px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border-radius: 999px;
   padding: 0;
+  background: var(--surface-soft);
+  border: 0;
 }
 
 .recipe-nav-spacer {
@@ -1949,6 +2053,13 @@ textarea {
   height: 10px;
   border-radius: 999px;
   background: var(--surface);
+}
+
+.recipe-cooked-button {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  text-align: right;
 }
 
 .cook-mode-button {
@@ -2764,4 +2875,9 @@ textarea {
     max-width: 540px;
     margin: 0 auto;
   }
+}
+
+.screen-layer {
+  position: absolute;
+  inset: 0;
 }

@@ -1,9 +1,10 @@
 import { animate, motion, useMotionValue, useTransform } from 'framer-motion';
-import { ChevronDown, LayoutGrid, List, Plus, X } from 'lucide-react';
+import { ChevronDown, LayoutGrid, List, Plus, Share2, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLongPress } from '../../hooks/useLongPress';
 import type { Recipe, RecipeViewMode } from '../../types/models';
 import { formatCookedDate } from '../../utils/recipes';
+import { exportRecipeToPdf } from '../../utils/recipePdf';
 
 interface RecipeDeckScreenProps {
   recipes: Recipe[];
@@ -42,34 +43,12 @@ const modeIcon = (mode: RecipeViewMode): JSX.Element => {
   return <LayoutGrid size={17} />;
 };
 
-const hashString = (value: string): number => {
-  let hash = 2166136261;
-  for (let i = 0; i < value.length; i += 1) {
-    hash ^= value.charCodeAt(i);
-    hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
-  }
-  return hash >>> 0;
-};
-
-const seededRandom = (seed: string): (() => number) => {
-  let t = hashString(seed) || 1;
-  return () => {
-    t += 0x6d2b79f5;
-    let r = Math.imul(t ^ (t >>> 15), 1 | t);
-    r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
-    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+const stackOffsetForDepth = (depth: number, height: number): { x: number; y: number } => {
+  const yStep = Math.min(30, height * 0.06);
+  return {
+    x: 0,
+    y: yStep * depth
   };
-};
-
-const stackOffsetFor = (seed: string, width: number, height: number): { x: number; y: number } => {
-  const rand = seededRandom(seed);
-  const min = 0.10;
-  const max = 0.10;
-  const magnitude = min + rand() * (max - min);
-  const angle = rand() * Math.PI * 2;
-  const x = Math.cos(angle) * magnitude * width;
-  const y = Math.sin(angle) * magnitude * height;
-  return { x, y };
 };
 
 export const RecipeDeckScreen = ({
@@ -97,9 +76,12 @@ export const RecipeDeckScreen = ({
   const cardRefs = useRef<Map<string, HTMLElement>>(new Map());
   const isScrollingRef = useRef(false);
   const scrollStopTimeoutRef = useRef<number | null>(null);
+  const scrollTiltRafRef = useRef<number | null>(null);
   const [stackSize, setStackSize] = useState({ width: 0, height: 0 });
   const dragX = useMotionValue(0);
-  const dragRotate = useTransform(dragX, [-180, 0, 180], [-6, 0, 6]);
+  const dragRotate = useTransform(dragX, [-180, 0, 180], [0, 0, 0]);
+  const dragRotateY = useTransform(dragX, [-180, 0, 180], [0, 0, 0]);
+  const cardTiltX = 0;
   const dragThreshold = 160;
   const cardRecipes = deckRecipes && deckRecipes.length ? deckRecipes : recipes;
   const totalCount = recipes.length;
@@ -182,6 +164,9 @@ export const RecipeDeckScreen = ({
       if (scrollStopTimeoutRef.current !== null) {
         window.clearTimeout(scrollStopTimeoutRef.current);
       }
+      if (scrollTiltRafRef.current !== null) {
+        window.cancelAnimationFrame(scrollTiltRafRef.current);
+      }
     };
   }, []);
 
@@ -216,13 +201,12 @@ export const RecipeDeckScreen = ({
   }, [nextRecipe, prevRecipe, nextRecipe2, prevRecipe2]);
 
   const stackMetrics = useMemo(() => {
-    const width = stackSize.width || 320;
     const height = stackSize.height || 420;
-    const baseScales = [0.96, 0.92, 0.88, 0.84];
-    const baseOpacities = [0.7, 0.55, 0.42, 0.32];
+    const baseScales = [0.985, 0.97, 0.955, 0.94];
+    const baseOpacities = [1, 1, 1, 1];
 
     return stackItems.map((item, index) => {
-      const offset = stackOffsetFor(`${item.recipe.id}-${item.role}`, width, height);
+      const offset = stackOffsetForDepth(item.depth, height);
       return {
         ...item,
         offset,
@@ -250,11 +234,7 @@ export const RecipeDeckScreen = ({
     [-dragThreshold, 0, dragThreshold],
     [1, nextPrimary?.scale ?? 0.96, (nextPrimary?.scale ?? 0.96) - 0.02]
   );
-  const nextPrimaryOpacity = useTransform(
-    dragX,
-    [-dragThreshold, 0, dragThreshold],
-    [1, nextPrimary?.opacity ?? 0.7, (nextPrimary?.opacity ?? 0.7) - 0.1]
-  );
+  const nextPrimaryOpacity = useTransform(dragX, [-dragThreshold, 0, dragThreshold], [1, 1, 1]);
 
   const prevPrimaryX = useTransform(
     dragX,
@@ -271,11 +251,60 @@ export const RecipeDeckScreen = ({
     [-dragThreshold, 0, dragThreshold],
     [(prevPrimary?.scale ?? 0.96) - 0.02, prevPrimary?.scale ?? 0.96, 1]
   );
-  const prevPrimaryOpacity = useTransform(
-    dragX,
-    [-dragThreshold, 0, dragThreshold],
-    [(prevPrimary?.opacity ?? 0.7) - 0.1, prevPrimary?.opacity ?? 0.7, 1]
-  );
+  const prevPrimaryOpacity = useTransform(dragX, [-dragThreshold, 0, dragThreshold], [1, 1, 1]);
+
+  const updateScrollTilts = useCallback(() => {
+    if (viewMode !== 'scroll') {
+      return;
+    }
+
+    const container = scrollRef.current;
+    if (!container) {
+      return;
+    }
+
+    const containerRect = container.getBoundingClientRect();
+    const centerY = containerRect.top + containerRect.height / 2;
+    const maxDistance = Math.max(1, containerRect.height / 2);
+    const rotateXMax = 18;
+    const depthMax = 90;
+    const liftMax = 22;
+
+    cardRefs.current.forEach((node) => {
+      if (!node.classList.contains('recipe-scroll-card')) {
+        return;
+      }
+      const rect = node.getBoundingClientRect();
+      const cardCenter = rect.top + rect.height / 2;
+      const delta = cardCenter - centerY;
+      const normalized = Math.max(-1, Math.min(1, delta / maxDistance));
+      const distance = Math.abs(normalized);
+      const closeness = 1 - distance;
+      const rotateX = normalized * rotateXMax;
+      const depth = depthMax * closeness;
+      const lift = -liftMax * distance;
+      const zIndex = Math.round(closeness * 100);
+      const opacity = Math.max(0, Math.min(1, closeness * 1.15 - 0.15));
+      node.style.setProperty('--scroll-tilt-x', `${rotateX.toFixed(2)}deg`);
+      node.style.setProperty('--scroll-tilt-y', `0deg`);
+      node.style.setProperty('--scroll-depth', `${depth.toFixed(2)}px`);
+      node.style.setProperty('--scroll-lift', `${lift.toFixed(2)}px`);
+      node.style.setProperty('--scroll-opacity', `${opacity.toFixed(2)}`);
+      node.style.zIndex = `${100 + zIndex}`;
+    });
+  }, [viewMode]);
+
+  const scheduleScrollTiltUpdate = useCallback(() => {
+    if (scrollTiltRafRef.current !== null) {
+      return;
+    }
+
+    scrollTiltRafRef.current = window.requestAnimationFrame(() => {
+      scrollTiltRafRef.current = null;
+      updateScrollTilts();
+    });
+  }, [updateScrollTilts]);
+
 
   const handleCardClick = () => {
     if (suppressClickRef.current) {
@@ -374,7 +403,19 @@ export const RecipeDeckScreen = ({
     scrollStopTimeoutRef.current = window.setTimeout(() => {
       isScrollingRef.current = false;
     }, 140);
+
+    scheduleScrollTiltUpdate();
   };
+
+  useEffect(() => {
+    if (viewMode !== 'scroll') {
+      return;
+    }
+
+    scheduleScrollTiltUpdate();
+    window.addEventListener('resize', scheduleScrollTiltUpdate);
+    return () => window.removeEventListener('resize', scheduleScrollTiltUpdate);
+  }, [scheduleScrollTiltUpdate, viewMode, cardRecipes.length]);
 
   const cycleViewMode = () => {
     const currentIndex = viewModeOrder.indexOf(viewMode);
@@ -395,14 +436,6 @@ export const RecipeDeckScreen = ({
           <span className="recipe-total-count" aria-label={`Total recipes ${totalCount}`}>
             {totalCount}
           </span>
-          <button
-            type="button"
-            className="plain-icon-button"
-            onClick={cycleViewMode}
-            aria-label="Switch recipe view mode"
-          >
-            {modeIcon(viewMode)}
-          </button>
         </div>
       </header>
 
@@ -415,16 +448,19 @@ export const RecipeDeckScreen = ({
                 return (
                   <motion.article
                     key={`stack-${item.recipe.id}-${item.role}`}
-                    className="recipe-card recipe-card-back recipe-card-back-next"
-                    aria-hidden="true"
-                    style={{
-                      x: nextPrimaryX,
-                      y: nextPrimaryY,
-                      scale: nextPrimaryScale,
-                      opacity: nextPrimaryOpacity,
-                      zIndex
-                    }}
-                  >
+                  className="recipe-card recipe-card-back recipe-card-back-next"
+                  aria-hidden="true"
+                  style={{
+                    x: nextPrimaryX,
+                    y: nextPrimaryY,
+                    scale: nextPrimaryScale,
+                    opacity: nextPrimaryOpacity,
+                    rotateX: 0,
+                    rotateY: 0,
+                    translateZ: 0,
+                    zIndex
+                  }}
+                >
                     {renderRecipeCardContent(item.recipe)}
                   </motion.article>
                 );
@@ -434,16 +470,19 @@ export const RecipeDeckScreen = ({
                 return (
                   <motion.article
                     key={`stack-${item.recipe.id}-${item.role}`}
-                    className="recipe-card recipe-card-back recipe-card-back-prev"
-                    aria-hidden="true"
-                    style={{
-                      x: prevPrimaryX,
-                      y: prevPrimaryY,
-                      scale: prevPrimaryScale,
-                      opacity: prevPrimaryOpacity,
-                      zIndex
-                    }}
-                  >
+                  className="recipe-card recipe-card-back recipe-card-back-prev"
+                  aria-hidden="true"
+                  style={{
+                    x: prevPrimaryX,
+                    y: prevPrimaryY,
+                    scale: prevPrimaryScale,
+                    opacity: prevPrimaryOpacity,
+                    rotateX: 0,
+                    rotateY: 0,
+                    translateZ: 0,
+                    zIndex
+                  }}
+                >
                     {renderRecipeCardContent(item.recipe)}
                   </motion.article>
                 );
@@ -459,6 +498,9 @@ export const RecipeDeckScreen = ({
                     y: item.offset.y,
                     scale: item.scale,
                     opacity: item.opacity,
+                    rotateX: 0,
+                    rotateY: 0,
+                    translateZ: 0,
                     zIndex
                   }}
                 >
@@ -489,7 +531,14 @@ export const RecipeDeckScreen = ({
               onDragStart={handleDragStart}
               onDrag={handleDrag}
               onDragEnd={handleDragEnd}
-              style={{ x: dragX, rotate: dragRotate, zIndex: 50 }}
+              style={{
+                x: dragX,
+                rotate: dragRotate,
+                rotateX: cardTiltX,
+                rotateY: dragRotateY,
+                translateZ: 0,
+                zIndex: 50
+              }}
               role="button"
               tabIndex={0}
               aria-label={`Open ${activeRecipe.title}`}
@@ -511,6 +560,22 @@ export const RecipeDeckScreen = ({
                     onPointerUp={(event) => event.stopPropagation()}
                   >
                     <X size={14} />
+                  </button>
+                ) : null}
+
+                {isActiveJiggling ? (
+                  <button
+                    type="button"
+                    className="recipe-card-share"
+                    aria-label="Share recipe"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      exportRecipeToPdf(activeRecipe);
+                    }}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onPointerUp={(event) => event.stopPropagation()}
+                  >
+                    <Share2 size={14} />
                   </button>
                 ) : null}
 
@@ -583,11 +648,32 @@ export const RecipeDeckScreen = ({
         </div>
       )}
 
-      {showImportFab ? (
-        <button type="button" className="import-fab" aria-label="Import recipe" onClick={onImport}>
-          <Plus size={20} />
+      <div className="deck-bottom-bar">
+        <button
+          type="button"
+          className="plain-icon-button deck-view-button"
+          onClick={cycleViewMode}
+          aria-label="Switch recipe view mode"
+        >
+          {modeIcon(viewMode)}
         </button>
-      ) : null}
+        <input
+          type="search"
+          className="deck-search-input"
+          placeholder="Search recipes"
+          aria-label="Search recipes"
+        />
+        {showImportFab ? (
+          <button
+            type="button"
+            className="import-fab deck-import-button"
+            aria-label="Import recipe"
+            onClick={onImport}
+          >
+            <Plus size={20} />
+          </button>
+        ) : null}
+      </div>
 
     </motion.section>
   );
@@ -717,6 +803,21 @@ const ScrollRecipeCard = ({
             <X size={14} />
           </button>
         ) : null}
+        {isJiggling ? (
+          <button
+            type="button"
+            className="recipe-card-share"
+            aria-label="Share recipe"
+            onClick={(event) => {
+              event.stopPropagation();
+              exportRecipeToPdf(recipe);
+            }}
+            onPointerDown={(event) => event.stopPropagation()}
+            onPointerUp={(event) => event.stopPropagation()}
+          >
+            <Share2 size={14} />
+          </button>
+        ) : null}
         {renderRecipeCardContent(recipe)}
 
         {isJiggling ? (
@@ -816,6 +917,21 @@ const RecipeRow = ({
           }}
         >
           <X size={14} />
+        </button>
+      ) : null}
+      {isJiggling ? (
+        <button
+          type="button"
+          className="recipe-row-share"
+          aria-label="Share recipe"
+          onClick={(event) => {
+            event.stopPropagation();
+            exportRecipeToPdf(recipe);
+          }}
+          onPointerDown={(event) => event.stopPropagation()}
+          onPointerUp={(event) => event.stopPropagation()}
+        >
+          <Share2 size={14} />
         </button>
       ) : null}
       <div
