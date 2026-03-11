@@ -91,6 +91,8 @@ textarea {
   position: absolute;
   inset: 0;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
   padding:
     calc(env(safe-area-inset-top) + 12px)
     12px
@@ -1205,7 +1207,7 @@ textarea {
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-  padding: calc(env(safe-area-inset-top) + 12px) 18px calc(env(safe-area-inset-bottom) + 18px);
+  padding: calc(env(safe-area-inset-top) + 12px) 18px calc(env(safe-area-inset-bottom) + 12px);
   touch-action: pan-y;
   display: flex;
   align-items: flex-start;
@@ -1222,21 +1224,22 @@ textarea {
   flex-direction: column;
   align-items: center;
   gap: 0;
-  padding: 10px 0 60px;
   width: 100%;
-  height: max-content;
+  padding-bottom: 80px;
   transform-style: preserve-3d;
 }
 
 .recipe-scroll-card {
-  --scroll-card-height: min(46vh, 380px);
-  --scroll-card-width: min(520px, 88vw);
-  --scroll-overlap: calc(0.7 * var(--scroll-card-height));
+  --scroll-card-height: min(22vh, 190px);
+  --scroll-card-width: min(260px, 68vw);
   width: var(--scroll-card-width);
   flex: 0 0 var(--scroll-card-height);
   height: var(--scroll-card-height);
-  min-height: 350px;
-  margin-top: calc(-1 * var(--scroll-overlap));
+  min-height: 140px;
+  position: relative;
+  top: auto;
+  left: auto;
+  margin: -32px 0 0;
   box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
   touch-action: pan-y;
 }
@@ -1253,6 +1256,7 @@ textarea {
   overflow: visible;
   perspective: 1200px;
   transform-style: preserve-3d;
+  transform: translateY(-16px);
 }
 
 
@@ -1327,15 +1331,8 @@ textarea {
 
 .recipe-scroll-card.recipe-card {
   touch-action: pan-y;
-  transform:
-    translateZ(var(--scroll-depth, 0px))
-    translateY(var(--scroll-lift, 0px))
-    rotateX(var(--scroll-tilt-x, 0deg))
-    rotateY(var(--scroll-tilt-y, 0deg));
-  transform-style: preserve-3d;
-  backface-visibility: hidden;
-  will-change: transform;
-  opacity: var(--scroll-opacity, 1);
+  transform: none;
+  opacity: 1;
 }
 
 .recipe-card.recipe-card-back {
@@ -2875,9 +2872,4 @@ textarea {
     max-width: 540px;
     margin: 0 auto;
   }
-}
-
-.screen-layer {
-  position: absolute;
-  inset: 0;
 }

@@ -44,7 +44,7 @@ const modeIcon = (mode: RecipeViewMode): JSX.Element => {
 };
 
 const stackOffsetForDepth = (depth: number, height: number): { x: number; y: number } => {
-  const yStep = Math.min(30, height * 0.06);
+  const yStep = Math.min(18, height * 0.04);
   return {
     x: 0,
     y: yStep * depth
@@ -76,7 +76,6 @@ export const RecipeDeckScreen = ({
   const cardRefs = useRef<Map<string, HTMLElement>>(new Map());
   const isScrollingRef = useRef(false);
   const scrollStopTimeoutRef = useRef<number | null>(null);
-  const scrollTiltRafRef = useRef<number | null>(null);
   const [stackSize, setStackSize] = useState({ width: 0, height: 0 });
   const dragX = useMotionValue(0);
   const dragRotate = useTransform(dragX, [-180, 0, 180], [0, 0, 0]);
@@ -164,9 +163,6 @@ export const RecipeDeckScreen = ({
       if (scrollStopTimeoutRef.current !== null) {
         window.clearTimeout(scrollStopTimeoutRef.current);
       }
-      if (scrollTiltRafRef.current !== null) {
-        window.cancelAnimationFrame(scrollTiltRafRef.current);
-      }
     };
   }, []);
 
@@ -253,58 +249,18 @@ export const RecipeDeckScreen = ({
   );
   const prevPrimaryOpacity = useTransform(dragX, [-dragThreshold, 0, dragThreshold], [1, 1, 1]);
 
-  const updateScrollTilts = useCallback(() => {
-    if (viewMode !== 'scroll') {
-      return;
+  const handleScroll = () => {
+    isScrollingRef.current = true;
+    if (jigglingRecipeId) {
+      setJigglingRecipeId(null);
     }
-
-    const container = scrollRef.current;
-    if (!container) {
-      return;
+    if (scrollStopTimeoutRef.current !== null) {
+      window.clearTimeout(scrollStopTimeoutRef.current);
     }
-
-    const containerRect = container.getBoundingClientRect();
-    const centerY = containerRect.top + containerRect.height / 2;
-    const maxDistance = Math.max(1, containerRect.height / 2);
-    const rotateXMax = 18;
-    const depthMax = 90;
-    const liftMax = 22;
-
-    cardRefs.current.forEach((node) => {
-      if (!node.classList.contains('recipe-scroll-card')) {
-        return;
-      }
-      const rect = node.getBoundingClientRect();
-      const cardCenter = rect.top + rect.height / 2;
-      const delta = cardCenter - centerY;
-      const normalized = Math.max(-1, Math.min(1, delta / maxDistance));
-      const distance = Math.abs(normalized);
-      const closeness = 1 - distance;
-      const rotateX = normalized * rotateXMax;
-      const depth = depthMax * closeness;
-      const lift = -liftMax * distance;
-      const zIndex = Math.round(closeness * 100);
-      const opacity = Math.max(0, Math.min(1, closeness * 1.15 - 0.15));
-      node.style.setProperty('--scroll-tilt-x', `${rotateX.toFixed(2)}deg`);
-      node.style.setProperty('--scroll-tilt-y', `0deg`);
-      node.style.setProperty('--scroll-depth', `${depth.toFixed(2)}px`);
-      node.style.setProperty('--scroll-lift', `${lift.toFixed(2)}px`);
-      node.style.setProperty('--scroll-opacity', `${opacity.toFixed(2)}`);
-      node.style.zIndex = `${100 + zIndex}`;
-    });
-  }, [viewMode]);
-
-  const scheduleScrollTiltUpdate = useCallback(() => {
-    if (scrollTiltRafRef.current !== null) {
-      return;
-    }
-
-    scrollTiltRafRef.current = window.requestAnimationFrame(() => {
-      scrollTiltRafRef.current = null;
-      updateScrollTilts();
-    });
-  }, [updateScrollTilts]);
-
+    scrollStopTimeoutRef.current = window.setTimeout(() => {
+      isScrollingRef.current = false;
+    }, 140);
+  };
 
   const handleCardClick = () => {
     if (suppressClickRef.current) {
@@ -391,31 +347,6 @@ export const RecipeDeckScreen = ({
       void animate(dragX, 0, { duration: 0.2, ease: 'easeOut' });
     }
   };
-
-  const handleScroll = () => {
-    isScrollingRef.current = true;
-    if (jigglingRecipeId) {
-      setJigglingRecipeId(null);
-    }
-    if (scrollStopTimeoutRef.current !== null) {
-      window.clearTimeout(scrollStopTimeoutRef.current);
-    }
-    scrollStopTimeoutRef.current = window.setTimeout(() => {
-      isScrollingRef.current = false;
-    }, 140);
-
-    scheduleScrollTiltUpdate();
-  };
-
-  useEffect(() => {
-    if (viewMode !== 'scroll') {
-      return;
-    }
-
-    scheduleScrollTiltUpdate();
-    window.addEventListener('resize', scheduleScrollTiltUpdate);
-    return () => window.removeEventListener('resize', scheduleScrollTiltUpdate);
-  }, [scheduleScrollTiltUpdate, viewMode, cardRecipes.length]);
 
   const cycleViewMode = () => {
     const currentIndex = viewModeOrder.indexOf(viewMode);
