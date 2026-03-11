@@ -288,7 +288,6 @@ const AppContent = (): JSX.Element => {
           <RecipeSearchScreen
             key="search"
             query={searchQuery}
-            onQueryChange={setSearchQuery}
             onClose={() => setSearchOpen(false)}
             onImportUrl={handleSearchImport}
           />

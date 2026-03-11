@@ -5,14 +5,12 @@ import { searchRecipes, type RecipeSearchResult } from '../../utils/recipeSearch
 
 interface RecipeSearchScreenProps {
   query: string;
-  onQueryChange: (value: string) => void;
   onClose: () => void;
   onImportUrl: (url: string) => Promise<boolean>;
 }
 
 export const RecipeSearchScreen = ({
   query,
-  onQueryChange,
   onClose,
   onImportUrl
 }: RecipeSearchScreenProps): JSX.Element => {
