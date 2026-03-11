@@ -92,6 +92,14 @@ export const RecipeDeckScreen = ({
   const totalCount = recipes.length;
   const isActiveJiggling = jigglingRecipeId === activeRecipe.id;
 
+  const handleSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (searchQuery.trim().length < 2) {
+      return;
+    }
+    onOpenSearch();
+  };
+
   const registerCardRef = useCallback((recipeId: string) => {
     return (node: HTMLElement | null) => {
       if (node) {
@@ -594,15 +602,16 @@ export const RecipeDeckScreen = ({
         >
           {modeIcon(viewMode)}
         </button>
-        <input
-          type="search"
-          className="deck-search-input"
-          placeholder="Search recipes"
-          aria-label="Search recipes"
-          value={searchQuery}
-          onChange={(event) => onSearchQueryChange(event.target.value)}
-          onFocus={onOpenSearch}
-        />
+        <form className="deck-search-form" onSubmit={handleSearchSubmit}>
+          <input
+            type="search"
+            className="deck-search-input"
+            placeholder="Search recipes"
+            aria-label="Search recipes"
+            value={searchQuery}
+            onChange={(event) => onSearchQueryChange(event.target.value)}
+          />
+        </form>
         {showImportFab ? (
           <button
             type="button"

@@ -122,17 +122,6 @@ export const RecipeSearchScreen = ({
         ))}
       </div>
 
-      <div className="search-bottom-bar">
-        <input
-          type="search"
-          className="deck-search-input"
-          placeholder="Search recipes"
-          value={query}
-          onChange={(event) => onQueryChange(event.target.value)}
-          autoFocus
-        />
-      </div>
-
       {selected ? (
         <div className="search-confirm-overlay" onClick={() => setSelected(null)}>
           <div

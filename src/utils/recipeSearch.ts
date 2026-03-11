@@ -13,7 +13,11 @@ const SEARCH_ENDPOINT = (() => {
 
   const scraper = import.meta.env.VITE_SCRAPER_URL as string | undefined;
   if (scraper) {
-    return scraper.replace(/\/api\/scrape\/?$/, '/api/search');
+    const normalized = scraper.replace(/\/$/, '');
+    if (normalized.endsWith('/api/scrape')) {
+      return normalized.replace(/\/api\/scrape$/, '/api/search');
+    }
+    return `${normalized}/api/search`;
   }
 
   return '/api/search';
