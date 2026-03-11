@@ -2063,6 +2063,7 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  background: var(--bg);
 }
 
 .search-header h2 {
