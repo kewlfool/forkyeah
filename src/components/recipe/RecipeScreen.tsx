@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { ChefHat, Pencil, Share2, StickyNote, Timer, Trash2, Utensils } from 'lucide-react';
+import { ChefHat, Leaf, Pencil, Share2, StickyNote, Timer, Trash2, Utensils } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type TouchEvent } from 'react';
 import { useHorizontalSwipe } from '../../hooks/useHorizontalSwipe';
 import { useLongPress } from '../../hooks/useLongPress';
@@ -141,7 +141,7 @@ export const RecipeScreen = ({ recipe, onClose }: RecipeScreenProps): JSX.Elemen
   const navIconSize = 18;
   const [nowTick, setNowTick] = useState(() => Date.now());
 
-  const [peekPanel, setPeekPanel] = useState<'ingredients' | 'notes' | 'timer' | null>(null);
+  const [peekPanel, setPeekPanel] = useState<'ingredients' | 'notes' | 'nutrients' | 'timer' | null>(null);
   const [timerMinutes, setTimerMinutes] = useState(10);
   const [timerEndsAt, setTimerEndsAt] = useState<number | null>(null);
   const [timerNow, setTimerNow] = useState(() => Date.now());
@@ -191,6 +191,17 @@ export const RecipeScreen = ({ recipe, onClose }: RecipeScreenProps): JSX.Elemen
       year: 'numeric'
     })}`;
   }, [nowTick, recipe.lastCooked]);
+
+  const displayTags = useMemo(() => {
+    const deduped = new Set<string>();
+    for (const item of [...recipe.categories, ...recipe.cuisines, ...recipe.tags]) {
+      const trimmed = item.trim();
+      if (trimmed) {
+        deduped.add(trimmed);
+      }
+    }
+    return Array.from(deduped);
+  }, [recipe.categories, recipe.cuisines, recipe.tags]);
 
   useEffect(() => {
     const timerId = window.setInterval(() => {
@@ -256,10 +267,14 @@ export const RecipeScreen = ({ recipe, onClose }: RecipeScreenProps): JSX.Elemen
 
   const buildRecipeInput = (overrides: Partial<RecipeInput>): RecipeInput => ({
     title: recipe.title,
+    description: recipe.description,
     imageUrl: recipe.imageUrl,
     ingredients: recipe.ingredients,
     steps: recipe.steps,
     tags: recipe.tags,
+    categories: recipe.categories,
+    cuisines: recipe.cuisines,
+    nutrients: recipe.nutrients,
     prepTime: recipe.prepTime,
     cookTime: recipe.cookTime,
     notes: recipe.notes,
@@ -340,10 +355,8 @@ export const RecipeScreen = ({ recipe, onClose }: RecipeScreenProps): JSX.Elemen
             <Share2 size={16} />
           </button>
         </div>
+        {recipe.description.trim() ? <p className="recipe-description">{recipe.description}</p> : null}
         <div className="recipe-meta-row">
-          <div className="recipe-tag-row">
-            {recipe.tags.length ? recipe.tags.map((tag) => <span key={tag}>{tag}</span>) : <span>No tag</span>}
-          </div>
           <button
             type="button"
             className="recipe-title-meta recipe-cooked-button"
@@ -375,6 +388,13 @@ export const RecipeScreen = ({ recipe, onClose }: RecipeScreenProps): JSX.Elemen
             </div>
           </div>
         </div>
+        {displayTags.length ? (
+          <div className="recipe-tag-row recipe-tag-row-hero">
+            {displayTags.map((tag) => (
+              <span key={tag}>{tag}</span>
+            ))}
+          </div>
+        ) : null}
 
         <section className="recipe-section">
           <h2>Ingredients</h2>
@@ -445,6 +465,14 @@ export const RecipeScreen = ({ recipe, onClose }: RecipeScreenProps): JSX.Elemen
         >
           <StickyNote size={navIconSize} />
         </button>
+        <button
+          type="button"
+          className="recipe-nav-icon"
+          onClick={() => setPeekPanel('nutrients')}
+          aria-label="Nutrients"
+        >
+          <Leaf size={navIconSize} />
+        </button>
         <button type="button" className="recipe-nav-icon recipe-nav-spacer" aria-label="Cook mode">
           <ChefHat size={navIconSize} />
         </button>
@@ -501,6 +529,21 @@ export const RecipeScreen = ({ recipe, onClose }: RecipeScreenProps): JSX.Elemen
               <>
                 <h3>Notes</h3>
                 {recipe.notes.trim() ? <p>{recipe.notes}</p> : <p className="muted">No notes yet.</p>}
+              </>
+            ) : null}
+
+            {peekPanel === 'nutrients' ? (
+              <>
+                <h3>Nutrients</h3>
+                {recipe.nutrients.length ? (
+                  <ul className="recipe-peek-list">
+                    {recipe.nutrients.map((item, index) => (
+                      <li key={`${item}-${index}`}>{item}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="muted">No nutrients yet.</p>
+                )}
               </>
             ) : null}
 

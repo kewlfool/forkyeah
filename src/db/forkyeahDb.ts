@@ -20,6 +20,19 @@ class ForkyeahDB extends Dexie {
       timeReminders: 'id, fireAt, createdAt, updatedAt, canceled, completed',
       settings: 'key'
     });
+
+    this.version(2).stores({
+      recipes: 'id, createdAt',
+      timeReminders: 'id, fireAt, createdAt, updatedAt, canceled, completed',
+      settings: 'key'
+    }).upgrade((tx) => {
+      return tx.table('recipes').toCollection().modify((recipe: Recipe) => {
+        recipe.description = recipe.description ?? '';
+        recipe.categories = recipe.categories ?? [];
+        recipe.cuisines = recipe.cuisines ?? [];
+        recipe.nutrients = recipe.nutrients ?? [];
+      });
+    });
   }
 }
 

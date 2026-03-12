@@ -11,10 +11,14 @@ import {
 
 export interface RecipeStagingDraft {
   title: string;
+  description: string;
   imageUrl?: string;
   ingredients: string[];
   steps: string[];
   tags: string[];
+  categories: string[];
+  cuisines: string[];
+  nutrients: string[];
   prepTime: string;
   cookTime: string;
   notes: string;
@@ -35,6 +39,19 @@ interface RecipeStagingScreenProps {
 const normalizeInputList = (items: string[]): string[] =>
   items.map((item) => item.trim()).filter(Boolean);
 
+const mergeTagGroups = (...groups: string[][]): string[] => {
+  const deduped = new Set<string>();
+  for (const group of groups) {
+    for (const item of group) {
+      const trimmed = item.trim();
+      if (trimmed) {
+        deduped.add(trimmed);
+      }
+    }
+  }
+  return Array.from(deduped);
+};
+
 
 export const RecipeStagingScreen = ({
   draft,
@@ -46,8 +63,12 @@ export const RecipeStagingScreen = ({
   const [isEditing, setIsEditing] = useState(startEditing);
 
   const [title, setTitle] = useState(draft.title);
+  const [description, setDescription] = useState(draft.description);
   const [imageUrl, setImageUrl] = useState(draft.imageUrl ?? '');
   const [tagsInput, setTagsInput] = useState(draft.tags.join(', '));
+  const [categoriesInput, setCategoriesInput] = useState(draft.categories.join(', '));
+  const [cuisinesInput, setCuisinesInput] = useState(draft.cuisines.join(', '));
+  const [nutrientsInput, setNutrientsInput] = useState<string[]>(draft.nutrients);
   const [prepTime, setPrepTime] = useState(draft.prepTime);
   const [cookTime, setCookTime] = useState(draft.cookTime);
   const [ingredientsInput, setIngredientsInput] = useState<string[]>(draft.ingredients);
@@ -60,8 +81,12 @@ export const RecipeStagingScreen = ({
   useEffect(() => {
     setIsEditing(mode === 'edit' ? true : startEditing);
     setTitle(draft.title);
+    setDescription(draft.description);
     setImageUrl(draft.imageUrl ?? '');
     setTagsInput(draft.tags.join(', '));
+    setCategoriesInput(draft.categories.join(', '));
+    setCuisinesInput(draft.cuisines.join(', '));
+    setNutrientsInput(draft.nutrients);
     setPrepTime(draft.prepTime);
     setCookTime(draft.cookTime);
     setIngredientsInput(draft.ingredients);
@@ -83,6 +108,24 @@ export const RecipeStagingScreen = ({
         .filter(Boolean),
     [tagsInput]
   );
+  const categories = useMemo(
+    () =>
+      categoriesInput
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean),
+    [categoriesInput]
+  );
+  const cuisines = useMemo(
+    () =>
+      cuisinesInput
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean),
+    [cuisinesInput]
+  );
+  const nutrients = useMemo(() => normalizeInputList(nutrientsInput), [nutrientsInput]);
+  const displayTags = useMemo(() => mergeTagGroups(tags, categories, cuisines), [tags, categories, cuisines]);
 
   const ingredients = useMemo(() => normalizeInputList(ingredientsInput), [ingredientsInput]);
   const steps = useMemo(() => normalizeInputList(stepsInput), [stepsInput]);
@@ -91,10 +134,14 @@ export const RecipeStagingScreen = ({
   const handleAccept = () => {
     onAccept({
       title,
+      description,
       imageUrl,
       ingredients,
       steps,
       tags,
+      categories,
+      cuisines,
+      nutrients,
       prepTime,
       cookTime,
       notes: notesInput,
@@ -146,6 +193,17 @@ export const RecipeStagingScreen = ({
                 onChange={(event) => setTitle(event.target.value)}
                 className="list-input"
                 maxLength={80}
+              />
+            </label>
+
+            <label className="form-field">
+              <span className="field-label">Description</span>
+              <textarea
+                rows={3}
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                className="list-input list-input-textarea"
+                placeholder="Short summary of the recipe"
               />
             </label>
 
@@ -287,6 +345,28 @@ export const RecipeStagingScreen = ({
             </label>
 
             <label className="form-field">
+              <span className="field-label">Categories</span>
+              <input
+                type="text"
+                value={categoriesInput}
+                onChange={(event) => setCategoriesInput(event.target.value)}
+                className="list-input"
+                placeholder="comma-separated"
+              />
+            </label>
+
+            <label className="form-field">
+              <span className="field-label">Cuisines</span>
+              <input
+                type="text"
+                value={cuisinesInput}
+                onChange={(event) => setCuisinesInput(event.target.value)}
+                className="list-input"
+                placeholder="comma-separated"
+              />
+            </label>
+
+            <label className="form-field">
               <span className="field-label">Last cooked</span>
               <input
                 type="date"
@@ -301,6 +381,7 @@ export const RecipeStagingScreen = ({
             <div className="staging-title">
               <div>
                 <h2>{titleDisplay}</h2>
+                {description.trim() ? <p className="muted">{description}</p> : null}
                 <p className="muted">Source: {draft.sourceLabel || 'Manual'}</p>
               </div>
               <div className="staging-meta">
@@ -310,7 +391,11 @@ export const RecipeStagingScreen = ({
             </div>
 
             <div className="staging-tags">
-              {tags.length ? tags.map((tag) => <span key={tag}>{tag}</span>) : <span className="muted">No tags</span>}
+              {displayTags.length ? (
+                displayTags.map((tag) => <span key={tag}>{tag}</span>)
+              ) : (
+                <span className="muted">No tags</span>
+              )}
             </div>
 
             <div className="staging-section">
@@ -342,6 +427,19 @@ export const RecipeStagingScreen = ({
             <div className="staging-section">
               <h3>Notes</h3>
               {notesInput.trim() ? <p>{notesInput}</p> : <p className="muted">No notes yet.</p>}
+            </div>
+
+            <div className="staging-section">
+              <h3>Nutrients</h3>
+              {nutrients.length ? (
+                <ul>
+                  {nutrients.map((item, index) => (
+                    <li key={`${item}-${index}`}>{item}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="muted">No nutrients yet.</p>
+              )}
             </div>
 
             <div className="staging-section">

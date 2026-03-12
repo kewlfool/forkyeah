@@ -25,12 +25,15 @@ interface RecipeDeckScreenProps {
   showImportFab?: boolean;
 }
 
-const tagLabel = (tags: string[]): string => {
-  if (tags.length === 0) {
-    return 'No tag';
+const collectTags = (recipe: Recipe): string[] => {
+  const deduped = new Set<string>();
+  for (const item of [...recipe.categories, ...recipe.cuisines, ...recipe.tags]) {
+    const trimmed = item.trim();
+    if (trimmed) {
+      deduped.add(trimmed);
+    }
   }
-
-  return tags[0];
+  return Array.from(deduped);
 };
 
 const viewModeOrder: RecipeViewMode[] = ['scroll', 'card', 'list'];
@@ -630,6 +633,7 @@ export const RecipeDeckScreen = ({
 
 const renderRecipeCardContent = (recipe: Recipe): JSX.Element => {
   const hasImage = Boolean(recipe.imageUrl);
+  const tags = collectTags(recipe);
   return (
     <div className={`recipe-card-main ${hasImage ? 'has-image' : ''}`}>
       {hasImage ? (
@@ -642,7 +646,17 @@ const renderRecipeCardContent = (recipe: Recipe): JSX.Element => {
       <div className="recipe-card-body">
         <strong>{recipe.title || 'Untitled recipe'}</strong>
         <div className="recipe-card-meta">
-          <span className="recipe-card-tag">{tagLabel(recipe.tags)}</span>
+          {tags.length ? (
+            <div className="recipe-card-tags">
+              {tags.map((tag) => (
+                <span key={tag} className="recipe-card-tag">
+                  {tag}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <span className="recipe-card-tag">No tag</span>
+          )}
           <span className="recipe-card-date">Last cooked: {formatCookedDate(recipe.lastCooked)}</span>
         </div>
       </div>
@@ -810,6 +824,7 @@ const RecipeRow = ({
   onRequestImage: (recipeId: string) => void;
   registerRef: (node: HTMLElement | null) => void;
 }): JSX.Element => {
+  const tags = collectTags(recipe);
   const suppressClickRef = useRef(false);
   const longPressAtRef = useRef(0);
   const longPress = useLongPress({
@@ -923,6 +938,13 @@ const RecipeRow = ({
         </div>
         <div className="recipe-row-content">
           <strong>{recipe.title || 'Untitled recipe'}</strong>
+          {tags.length ? (
+            <div className="recipe-row-tags">
+              {tags.map((tag) => (
+                <span key={tag}>{tag}</span>
+              ))}
+            </div>
+          ) : null}
         </div>
         <div className="recipe-row-times">
           <span>Prep {recipe.prepTime || '—'}</span>

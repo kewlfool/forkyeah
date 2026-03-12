@@ -6,10 +6,14 @@ import { normalizeRecipe } from '../utils/recipes';
 
 export interface RecipeInput {
   title: string;
+  description: string;
   imageUrl?: string;
   ingredients: string[];
   steps: string[];
   tags: string[];
+  categories: string[];
+  cuisines: string[];
+  nutrients: string[];
   prepTime: string;
   cookTime: string;
   notes: string;
@@ -47,10 +51,14 @@ const buildRecipe = (input: RecipeInput, overrides?: Partial<Recipe>): Recipe =>
   return normalizeRecipe({
     id: overrides?.id ?? createId(),
     title: input.title.trim() || 'Untitled recipe',
+    description: input.description?.trim() ?? '',
     imageUrl: input.imageUrl?.trim() || '',
     ingredients: input.ingredients,
     steps: input.steps,
     tags: input.tags,
+    categories: input.categories,
+    cuisines: input.cuisines,
+    nutrients: input.nutrients,
     prepTime: input.prepTime,
     cookTime: input.cookTime,
     notes: input.notes,

@@ -103,10 +103,14 @@ const AppContent = (): JSX.Element => {
 
       const draft: RecipeStagingDraft = {
         title: parsed.title,
+        description: parsed.description,
         imageUrl: parsed.imageUrl,
         ingredients: parsed.ingredients,
         steps: parsed.steps,
         tags: parsed.tags,
+        categories: parsed.categories,
+        cuisines: parsed.cuisines,
+        nutrients: parsed.nutrients,
         prepTime: parsed.prepTime,
         cookTime: parsed.cookTime,
         notes: parsed.notes,
@@ -144,10 +148,14 @@ const AppContent = (): JSX.Element => {
   const handleEditRecipe = (recipe: Recipe) => {
     const draft: RecipeStagingDraft = {
       title: recipe.title ?? '',
+      description: recipe.description ?? '',
       imageUrl: recipe.imageUrl ?? '',
       ingredients: recipe.ingredients ?? [],
       steps: recipe.steps ?? [],
       tags: recipe.tags ?? [],
+      categories: recipe.categories ?? [],
+      cuisines: recipe.cuisines ?? [],
+      nutrients: recipe.nutrients ?? [],
       prepTime: recipe.prepTime ?? '',
       cookTime: recipe.cookTime ?? '',
       notes: recipe.notes ?? '',
@@ -169,10 +177,14 @@ const AppContent = (): JSX.Element => {
 
     updateRecipe(recipeId, {
       title: recipe.title,
+      description: recipe.description,
       imageUrl,
       ingredients: recipe.ingredients,
       steps: recipe.steps,
       tags: recipe.tags,
+      categories: recipe.categories,
+      cuisines: recipe.cuisines,
+      nutrients: recipe.nutrients,
       prepTime: recipe.prepTime,
       cookTime: recipe.cookTime,
       notes: recipe.notes,
@@ -226,10 +238,14 @@ const AppContent = (): JSX.Element => {
       const parsed = await parseRecipeImport({ url });
       const draft: RecipeStagingDraft = {
         title: parsed.title,
+        description: parsed.description,
         imageUrl: parsed.imageUrl,
         ingredients: parsed.ingredients,
         steps: parsed.steps,
         tags: parsed.tags,
+        categories: parsed.categories,
+        cuisines: parsed.cuisines,
+        nutrients: parsed.nutrients,
         prepTime: parsed.prepTime,
         cookTime: parsed.cookTime,
         notes: parsed.notes,
@@ -314,10 +330,14 @@ const AppContent = (): JSX.Element => {
         onCreateManual={() => {
           const draft: RecipeStagingDraft = {
             title: '',
+            description: '',
             imageUrl: '',
             ingredients: [],
             steps: [],
             tags: [],
+            categories: [],
+            cuisines: [],
+            nutrients: [],
             prepTime: '',
             cookTime: '',
             notes: '',

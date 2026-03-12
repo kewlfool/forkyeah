@@ -12,10 +12,14 @@ export interface RecipeImportInput {
 
 export interface ParsedRecipeDraft {
   title: string;
+  description: string;
   imageUrl?: string;
   ingredients: string[];
   steps: string[];
   tags: string[];
+  categories: string[];
+  cuisines: string[];
+  nutrients: string[];
   prepTime: string;
   cookTime: string;
   notes: string;
@@ -70,6 +74,51 @@ const normalizeTags = (items: string[]): string[] => {
   return Array.from(deduped);
 };
 
+const humanizeNutrientKey = (value: string): string => {
+  if (!value) {
+    return '';
+  }
+
+  const cleaned = value.replace(/Content$/i, '').replace(/[_-]+/g, ' ');
+  const spaced = cleaned.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/\s+/g, ' ').trim();
+  if (!spaced) {
+    return '';
+  }
+  return spaced.slice(0, 1).toUpperCase() + spaced.slice(1);
+};
+
+const normalizeNutrients = (value: unknown): string[] => {
+  if (!value) {
+    return [];
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed ? [trimmed] : [];
+  }
+
+  if (typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .filter(([key, val]) => !key.startsWith('@') && val !== null && val !== undefined)
+      .map(([key, val]) => {
+        const label = humanizeNutrientKey(key);
+        const text = String(val).trim();
+        if (!label || !text) {
+          return '';
+        }
+        return `${label}: ${text}`;
+      })
+      .filter(Boolean);
+    return entries;
+  }
+
+  return [];
+};
+
 const splitTags = (value: string): string[] =>
   value
     .split(/[;,]/)
@@ -78,10 +127,14 @@ const splitTags = (value: string): string[] =>
 
 const baseDraft = (sourceLabel: string, sourceType: RecipeParseSource): ParsedRecipeDraft => ({
   title: '',
+  description: '',
   imageUrl: '',
   ingredients: [],
   steps: [],
   tags: [],
+  categories: [],
+  cuisines: [],
+  nutrients: [],
   prepTime: '',
   cookTime: '',
   notes: '',
@@ -464,16 +517,22 @@ const extractRecipeFromJsonLd = (doc: Document): Partial<ParsedRecipeDraft> | nu
     const categories = toStringArray(recipe.recipeCategory);
     const cuisine = toStringArray(recipe.recipeCuisine);
     const imageUrl = extractImageUrl(recipe.image);
+    const description = typeof recipe.description === 'string' ? recipe.description : '';
+    const nutrients = normalizeNutrients(recipe.nutrition);
 
     return {
       title: typeof recipe.name === 'string' ? recipe.name : '',
+      description,
       imageUrl,
       ingredients,
       steps: instructions,
       tags: normalizeTags([...keywords, ...categories, ...cuisine]),
+      categories,
+      cuisines: cuisine,
+      nutrients,
       prepTime: formatDuration(recipe.prepTime),
       cookTime: formatDuration(recipe.cookTime),
-      notes: typeof recipe.description === 'string' ? recipe.description : ''
+      notes: ''
     };
   }
 
@@ -482,10 +541,14 @@ const extractRecipeFromJsonLd = (doc: Document): Partial<ParsedRecipeDraft> | nu
 
 interface BackendRecipeResponse {
   title?: string;
+  description?: string;
   imageUrl?: string;
   ingredients?: string[];
   steps?: string[];
   tags?: string[];
+  categories?: string[];
+  cuisines?: string[];
+  nutrients?: string[];
   prepTime?: string;
   cookTime?: string;
   notes?: string;
@@ -541,10 +604,14 @@ const fetchRecipeFromBackend = async (url: string): Promise<BackendFetchResult> 
     const data = (await response.json()) as BackendRecipeResponse;
     const draft = baseDraft(data.sourceLabel ?? url, 'url');
     draft.title = data.title?.trim() || deriveTitleFromUrl(url);
+    draft.description = data.description?.trim() || '';
     draft.imageUrl = data.imageUrl?.trim() || '';
     draft.ingredients = normalizeList(data.ingredients ?? []);
     draft.steps = normalizeList(data.steps ?? []);
-    draft.tags = normalizeTags(data.tags ?? []);
+    draft.categories = normalizeTags(data.categories ?? []);
+    draft.cuisines = normalizeTags(data.cuisines ?? []);
+    draft.tags = normalizeTags([...(data.tags ?? []), ...draft.categories, ...draft.cuisines]);
+    draft.nutrients = normalizeNutrients(data.nutrients ?? []);
     draft.prepTime = data.prepTime ?? '';
     draft.cookTime = data.cookTime ?? '';
     draft.notes = data.notes ?? '';
@@ -587,10 +654,14 @@ const parseRecipeFromUrl = async (url: string): Promise<ParsedRecipeDraft> => {
     if (jsonLd) {
       const draft = baseDraft(sourceLabel, 'url');
       draft.title = jsonLd.title?.trim() || fallbackTitle;
+      draft.description = jsonLd.description?.trim() || '';
       draft.imageUrl = jsonLd.imageUrl?.trim() || '';
       draft.ingredients = normalizeList(jsonLd.ingredients ?? []);
       draft.steps = normalizeList(jsonLd.steps ?? []);
-      draft.tags = normalizeTags(jsonLd.tags ?? []);
+      draft.categories = normalizeTags(jsonLd.categories ?? []);
+      draft.cuisines = normalizeTags(jsonLd.cuisines ?? []);
+      draft.tags = normalizeTags([...(jsonLd.tags ?? []), ...draft.categories, ...draft.cuisines]);
+      draft.nutrients = normalizeNutrients(jsonLd.nutrients ?? []);
       draft.prepTime = jsonLd.prepTime ?? '';
       draft.cookTime = jsonLd.cookTime ?? '';
       draft.notes = jsonLd.notes ?? '';

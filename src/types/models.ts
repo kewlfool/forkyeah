@@ -5,10 +5,14 @@ export type RecipeViewMode = 'scroll' | 'card' | 'list';
 export interface Recipe {
   id: string;
   title: string;
+  description: string;
   imageUrl?: string;
   ingredients: string[];
   steps: string[];
   tags: string[];
+  categories: string[];
+  cuisines: string[];
+  nutrients: string[];
   prepTime: string;
   cookTime: string;
   notes: string;

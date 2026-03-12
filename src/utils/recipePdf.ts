@@ -159,6 +159,9 @@ export const exportRecipeToPdf = async (recipe: Recipe): Promise<void> => {
     drawLine('None', 11, false, rgb(0.6, 0.64, 0.7));
   }
 
+  drawSectionTitle('Nutrients');
+  drawList(recipe.nutrients ?? []);
+
   const pdfBytes = await pdfDoc.save();
   const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
   const filename = `${safeFileName(title) || 'recipe'}.pdf`;

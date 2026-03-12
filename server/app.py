@@ -1,13 +1,14 @@
 import base64
 import json
 import os
+import re
 from typing import List, Optional
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from recipe_scrapers import scrape_me
+from recipe_scrapers import scrape_html
 
 app = FastAPI()
 
@@ -51,6 +52,7 @@ def safe_call(func, default=None):
 
 IMAGE_MAX_BYTES = 2_500_000
 IMAGE_USER_AGENT = "Mozilla/5.0 (compatible; forkyeah/1.0; +https://forkyeah.app)"
+RECIPE_USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:124.0) Gecko/20100101 Firefox/124.0"
 SEARXNG_URL = os.getenv("SEARXNG_URL", "").rstrip("/")
 SEARCH_USER_AGENT = "Mozilla/5.0 (compatible; forkyeah-search/1.0; +https://forkyeah.app)"
 
@@ -76,10 +78,66 @@ def fetch_image_data_url(url: str) -> str:
     return f"data:{content_type};base64,{encoded}"
 
 
+def fetch_recipe_html(url: str) -> str:
+    request = Request(
+        url,
+        headers={
+            "User-Agent": RECIPE_USER_AGENT,
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Cache-Control": "no-cache",
+        },
+    )
+    with urlopen(request, timeout=12) as response:
+        content_type = response.headers.get("Content-Type", "")
+        charset = response.headers.get_content_charset() or "utf-8"
+        if "text/html" not in content_type:
+            raise ValueError(f"Unexpected content type: {content_type}")
+        payload = response.read()
+        return payload.decode(charset, errors="replace")
+
+
+def split_list(value: Optional[str]) -> List[str]:
+    if not value:
+        return []
+    parts = re.split(r"[,/|;]+", value)
+    return [part.strip() for part in parts if part.strip()]
+
+
+def humanize_nutrient_key(value: str) -> str:
+    if not value:
+        return ""
+    cleaned = re.sub(r"Content$", "", value, flags=re.IGNORECASE)
+    spaced = re.sub(r"([a-z])([A-Z])", r"\1 \2", cleaned).replace("_", " ")
+    spaced = re.sub(r"\s+", " ", spaced).strip()
+    return spaced[:1].upper() + spaced[1:] if spaced else ""
+
+
+def format_nutrients(nutrients) -> List[str]:
+    if not nutrients:
+        return []
+    if isinstance(nutrients, list):
+        return [str(item).strip() for item in nutrients if str(item).strip()]
+    if isinstance(nutrients, dict):
+        items = []
+        for key, value in nutrients.items():
+            if key.startswith("@") or value is None:
+                continue
+            label = humanize_nutrient_key(str(key))
+            text = str(value).strip()
+            if not label or not text:
+                continue
+            items.append(f"{label}: {text}")
+        return items
+    text = str(nutrients).strip()
+    return [text] if text else []
+
+
 @app.get("/api/scrape")
 def scrape_recipe(url: str = Query(..., min_length=5)):
     try:
-        scraper = scrape_me(url)
+        html = fetch_recipe_html(url)
+        scraper = scrape_html(html, url, supported_only=False)
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Unable to fetch recipe: {exc}") from exc
 
@@ -98,6 +156,10 @@ def scrape_recipe(url: str = Query(..., min_length=5)):
             image_url = image_data_url
     ingredients = safe_call(scraper.ingredients, []) or []
     instructions_text = safe_call(scraper.instructions, "") or ""
+    description = safe_call(getattr(scraper, "description", None), "") or ""
+    category = safe_call(getattr(scraper, "category", None), "") or ""
+    cuisine = safe_call(getattr(scraper, "cuisine", None), "") or ""
+    nutrients = safe_call(getattr(scraper, "nutrients", None), None)
     prep_time = format_minutes(safe_call(scraper.prep_time))
     cook_time = format_minutes(safe_call(scraper.cook_time))
 
@@ -115,10 +177,14 @@ def scrape_recipe(url: str = Query(..., min_length=5)):
 
     return {
         "title": title,
+        "description": description,
         "imageUrl": image_url,
         "ingredients": ingredients,
         "steps": steps,
         "tags": [],
+        "categories": split_list(category),
+        "cuisines": split_list(cuisine),
+        "nutrients": format_nutrients(nutrients),
         "prepTime": prep_time,
         "cookTime": cook_time,
         "notes": "",
