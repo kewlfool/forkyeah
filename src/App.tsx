@@ -220,10 +220,11 @@ const AppContent = (): JSX.Element => {
         .filter((recipe): recipe is Recipe => Boolean(recipe))
     : recipes;
 
-  const handleSearchImport = async (url: string): Promise<boolean> => {
+  const handleSearchImport = async (url: string): Promise<void> => {
+    setIsParsing(true);
     try {
       const parsed = await parseRecipeImport({ url });
-      createRecipe({
+      const draft: RecipeStagingDraft = {
         title: parsed.title,
         imageUrl: parsed.imageUrl,
         ingredients: parsed.ingredients,
@@ -232,11 +233,19 @@ const AppContent = (): JSX.Element => {
         prepTime: parsed.prepTime,
         cookTime: parsed.cookTime,
         notes: parsed.notes,
-        lastCooked: null
-      });
-      return true;
+        lastCooked: null,
+        sourceLabel: parsed.sourceLabel,
+        rawContent: parsed.rawContent,
+        importWarning: parsed.importWarning
+      };
+
+      setEditingRecipeId(null);
+      setStagingMode('create');
+      setStagingDraft(draft);
     } catch {
-      return false;
+      // ignore
+    } finally {
+      setIsParsing(false);
     }
   };
 
@@ -284,7 +293,7 @@ const AppContent = (): JSX.Element => {
           />
         ) : null}
 
-        {searchOpen ? (
+        {!stagingDraft && searchOpen ? (
           <RecipeSearchScreen
             key="search"
             query={searchQuery}

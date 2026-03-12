@@ -6,7 +6,7 @@ import { searchRecipes, type RecipeSearchResult } from '../../utils/recipeSearch
 interface RecipeSearchScreenProps {
   query: string;
   onClose: () => void;
-  onImportUrl: (url: string) => Promise<boolean>;
+  onImportUrl: (url: string) => Promise<void>;
 }
 
 export const RecipeSearchScreen = ({
@@ -16,9 +16,6 @@ export const RecipeSearchScreen = ({
 }: RecipeSearchScreenProps): JSX.Element => {
   const [results, setResults] = useState<RecipeSearchResult[]>([]);
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
-  const [selected, setSelected] = useState<RecipeSearchResult | null>(null);
-  const [importing, setImporting] = useState(false);
-  const [savedUrls, setSavedUrls] = useState<Set<string>>(new Set());
 
   const pinch = usePinchToClose({
     onPinchOut: onClose,
@@ -49,23 +46,6 @@ export const RecipeSearchScreen = ({
 
     return () => window.clearTimeout(timer);
   }, [query]);
-
-  const handleConfirmImport = async () => {
-    if (!selected || importing) {
-      return;
-    }
-    setImporting(true);
-    const ok = await onImportUrl(selected.url);
-    setImporting(false);
-    if (ok) {
-      setSavedUrls((prev) => {
-        const next = new Set(prev);
-        next.add(selected.url);
-        return next;
-      });
-    }
-    setSelected(null);
-  };
 
   const resultsLabel = useMemo(() => {
     if (!query.trim()) {
@@ -105,7 +85,9 @@ export const RecipeSearchScreen = ({
             key={result.url}
             type="button"
             className="search-result-card"
-            onClick={() => setSelected(result)}
+            onClick={() => {
+              void onImportUrl(result.url);
+            }}
           >
             <div
               className="search-result-thumb"
@@ -114,38 +96,10 @@ export const RecipeSearchScreen = ({
             <div className="search-result-body">
               <strong>{result.title || result.url}</strong>
               {result.snippet ? <span>{result.snippet}</span> : null}
-              {savedUrls.has(result.url) ? <em>Saved</em> : null}
             </div>
           </button>
         ))}
       </div>
-
-      {selected ? (
-        <div className="search-confirm-overlay" onClick={() => setSelected(null)}>
-          <div
-            className="search-confirm-card"
-            onClick={(event) => {
-              event.stopPropagation();
-            }}
-          >
-            <h3>Import recipe?</h3>
-            <p>{selected.title || selected.url}</p>
-            <div className="search-confirm-actions">
-              <button type="button" className="ghost-button" onClick={() => setSelected(null)}>
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="solid-button"
-                onClick={handleConfirmImport}
-                disabled={importing}
-              >
-                {importing ? 'Saving…' : 'Save'}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </motion.section>
   );
 };
