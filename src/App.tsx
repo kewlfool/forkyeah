@@ -30,12 +30,13 @@ const readFileAsDataUrl = (file: File): Promise<string> =>
 type UiState =
   | { type: 'empty' }
   | { type: 'deck' }
-  | { type: 'search'; query: string }
+  | { type: 'search'; query: string; returnTo: { type: 'empty' } | { type: 'deck' } }
   | {
       type: 'staging';
       draft: RecipeStagingDraft;
       mode: 'create' | 'edit';
       editingRecipeId: string | null;
+      returnTo: { type: 'empty' } | { type: 'deck' } | { type: 'search'; query: string; returnTo: { type: 'empty' } | { type: 'deck' } };
     }
   | { type: 'recipe'; recipeId: string };
 
@@ -151,7 +152,8 @@ const AppContent = (): JSX.Element => {
         type: 'staging',
         draft,
         mode: 'create',
-        editingRecipeId: null
+        editingRecipeId: null,
+        returnTo: recipes.length ? { type: 'deck' } : { type: 'empty' }
       });
     } finally {
       setIsParsing(false);
@@ -175,7 +177,11 @@ const AppContent = (): JSX.Element => {
   };
 
   const handleDeleteDraft = () => {
-    setUiState(recipes.length ? { type: 'deck' } : { type: 'empty' });
+    if (uiState.type !== 'staging') {
+      return;
+    }
+
+    setUiState(uiState.returnTo);
   };
 
   const handleEditRecipe = (recipe: Recipe) => {
@@ -201,7 +207,8 @@ const AppContent = (): JSX.Element => {
       type: 'staging',
       draft,
       mode: 'edit',
-      editingRecipeId: recipe.id
+      editingRecipeId: recipe.id,
+      returnTo: { type: 'deck' }
     });
   };
 
@@ -247,7 +254,7 @@ const AppContent = (): JSX.Element => {
       return;
     }
 
-  const targetRecipeId =
+    const targetRecipeId =
       pendingImageRecipeId ?? (uiState.type === 'recipe' ? uiState.recipeId : activeRecipe?.id ?? null);
     try {
       const dataUrl = await readFileAsDataUrl(file);
@@ -306,7 +313,8 @@ const AppContent = (): JSX.Element => {
         type: 'staging',
         draft,
         mode: 'create',
-        editingRecipeId: null
+        editingRecipeId: null,
+        returnTo: uiState.type === 'search' ? uiState : { type: 'deck' }
       });
     } catch {
       // ignore
@@ -343,7 +351,7 @@ const AppContent = (): JSX.Element => {
           onQueryChange={(value) => {
             setUiState((current) => (current.type === 'search' ? { ...current, query: value } : current));
           }}
-          onClose={() => setUiState({ type: 'deck' })}
+          onClose={() => setUiState(uiState.returnTo)}
           onImportUrl={handleSearchImport}
         />
       );
@@ -398,7 +406,11 @@ const AppContent = (): JSX.Element => {
         onContinue={handleImportContinue}
         onOpenSearch={() => {
           setImportOpen(false);
-          setUiState({ type: 'search', query: '' });
+          setUiState({
+            type: 'search',
+            query: '',
+            returnTo: recipes.length ? { type: 'deck' } : { type: 'empty' }
+          });
         }}
         onCreateManual={() => {
           const draft: RecipeStagingDraft = {
@@ -424,7 +436,8 @@ const AppContent = (): JSX.Element => {
             type: 'staging',
             draft,
             mode: 'create',
-            editingRecipeId: null
+            editingRecipeId: null,
+            returnTo: recipes.length ? { type: 'deck' } : { type: 'empty' }
           });
         }}
       />
