@@ -12,9 +12,6 @@ interface RecipeDeckScreenProps {
   activeRecipe: Recipe;
   viewMode: RecipeViewMode;
   onOpenRecipe: (recipeId: string) => void;
-  onOpenSearch: () => void;
-  searchQuery: string;
-  onSearchQueryChange: (value: string) => void;
   onMoveRecipe: (offset: 1 | -1) => void;
   onImport: () => void;
   onEdit: (recipe: Recipe) => void;
@@ -63,9 +60,6 @@ export const RecipeDeckScreen = ({
   activeRecipe,
   viewMode,
   onOpenRecipe,
-  onOpenSearch,
-  searchQuery,
-  onSearchQueryChange,
   onMoveRecipe,
   onImport,
   onEdit,
@@ -94,14 +88,6 @@ export const RecipeDeckScreen = ({
   const cardRecipes = deckRecipes && deckRecipes.length ? deckRecipes : recipes;
   const totalCount = recipes.length;
   const isActiveJiggling = jigglingRecipeId === activeRecipe.id;
-
-  const handleSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (searchQuery.trim().length < 2) {
-      return;
-    }
-    onOpenSearch();
-  };
 
   const registerCardRef = useCallback((recipeId: string) => {
     return (node: HTMLElement | null) => {
@@ -596,16 +582,6 @@ export const RecipeDeckScreen = ({
         >
           {modeIcon(viewMode)}
         </button>
-        <form className="deck-search-form" onSubmit={handleSearchSubmit}>
-          <input
-            type="search"
-            className="deck-search-input"
-            placeholder="Search recipes"
-            aria-label="Search recipes"
-            value={searchQuery}
-            onChange={(event) => onSearchQueryChange(event.target.value)}
-          />
-        </form>
         {showImportFab ? (
           <button
             type="button"

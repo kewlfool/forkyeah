@@ -30,8 +30,13 @@ const readFileAsDataUrl = (file: File): Promise<string> =>
 type UiState =
   | { type: 'empty' }
   | { type: 'deck' }
-  | { type: 'search' }
-  | { type: 'staging' }
+  | { type: 'search'; query: string }
+  | {
+      type: 'staging';
+      draft: RecipeStagingDraft;
+      mode: 'create' | 'edit';
+      editingRecipeId: string | null;
+    }
   | { type: 'recipe'; recipeId: string };
 
 const AppContent = (): JSX.Element => {
@@ -53,12 +58,8 @@ const AppContent = (): JSX.Element => {
   const homeHydrated = useHomeStore((state) => state.hydrated);
 
   const [importOpen, setImportOpen] = useState(false);
-  const [stagingDraft, setStagingDraft] = useState<RecipeStagingDraft | null>(null);
-  const [stagingMode, setStagingMode] = useState<'create' | 'edit'>('create');
-  const [editingRecipeId, setEditingRecipeId] = useState<string | null>(null);
   const [isParsing, setIsParsing] = useState(false);
   const [pendingImageRecipeId, setPendingImageRecipeId] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
   const [uiState, setUiState] = useState<UiState>({ type: 'deck' });
   const imageInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -146,30 +147,34 @@ const AppContent = (): JSX.Element => {
         importWarning: parsed.importWarning
       };
 
-      setEditingRecipeId(null);
-      setStagingMode('create');
-      setStagingDraft(draft);
-      setUiState({ type: 'staging' });
+      setUiState({
+        type: 'staging',
+        draft,
+        mode: 'create',
+        editingRecipeId: null
+      });
     } finally {
       setIsParsing(false);
     }
   };
 
   const handleAccept = (input: RecipeInput) => {
-    if (editingRecipeId) {
-      updateRecipe(editingRecipeId, input);
-    } else {
-      createRecipe(input);
+    if (uiState.type !== 'staging') {
+      return;
     }
 
-    setStagingDraft(null);
-    setEditingRecipeId(null);
+    if (uiState.editingRecipeId) {
+      updateRecipe(uiState.editingRecipeId, input);
+      setActiveRecipe(uiState.editingRecipeId);
+    } else {
+      const recipeId = createRecipe(input);
+      setActiveRecipe(recipeId);
+    }
+
     setUiState({ type: 'deck' });
   };
 
   const handleDeleteDraft = () => {
-    setStagingDraft(null);
-    setEditingRecipeId(null);
     setUiState(recipes.length ? { type: 'deck' } : { type: 'empty' });
   };
 
@@ -192,10 +197,12 @@ const AppContent = (): JSX.Element => {
       rawContent: recipe.notes ?? ''
     };
 
-    setEditingRecipeId(recipe.id);
-    setStagingMode('edit');
-    setStagingDraft(draft);
-    setUiState({ type: 'staging' });
+    setUiState({
+      type: 'staging',
+      draft,
+      mode: 'edit',
+      editingRecipeId: recipe.id
+    });
   };
 
   const handleUpdateImage = (recipeId: string, imageUrl: string) => {
@@ -240,7 +247,7 @@ const AppContent = (): JSX.Element => {
       return;
     }
 
-    const targetRecipeId =
+  const targetRecipeId =
       pendingImageRecipeId ?? (uiState.type === 'recipe' ? uiState.recipeId : activeRecipe?.id ?? null);
     try {
       const dataUrl = await readFileAsDataUrl(file);
@@ -270,6 +277,8 @@ const AppContent = (): JSX.Element => {
     setUiState({ type: 'recipe', recipeId });
   };
 
+  const searchQuery = uiState.type === 'search' ? uiState.query : '';
+
   const handleSearchImport = async (url: string): Promise<void> => {
     setIsParsing(true);
     try {
@@ -293,10 +302,12 @@ const AppContent = (): JSX.Element => {
         importWarning: parsed.importWarning
       };
 
-      setEditingRecipeId(null);
-      setStagingMode('create');
-      setStagingDraft(draft);
-      setUiState({ type: 'staging' });
+      setUiState({
+        type: 'staging',
+        draft,
+        mode: 'create',
+        editingRecipeId: null
+      });
     } catch {
       // ignore
     } finally {
@@ -305,14 +316,14 @@ const AppContent = (): JSX.Element => {
   };
 
   const screen = (() => {
-    if (uiState.type === 'staging' && stagingDraft) {
+    if (uiState.type === 'staging') {
       return (
         <RecipeStagingScreen
           key="staging"
-          draft={stagingDraft}
-          mode={stagingMode}
+          draft={uiState.draft}
+          mode={uiState.mode}
           startEditing={
-            stagingMode === 'edit' || (stagingMode === 'create' && stagingDraft.sourceLabel === 'Manual')
+            uiState.mode === 'edit' || (uiState.mode === 'create' && uiState.draft.sourceLabel === 'Manual')
           }
           onAccept={handleAccept}
           onDelete={handleDeleteDraft}
@@ -329,6 +340,9 @@ const AppContent = (): JSX.Element => {
         <RecipeSearchScreen
           key="search"
           query={searchQuery}
+          onQueryChange={(value) => {
+            setUiState((current) => (current.type === 'search' ? { ...current, query: value } : current));
+          }}
           onClose={() => setUiState({ type: 'deck' })}
           onImportUrl={handleSearchImport}
         />
@@ -357,9 +371,6 @@ const AppContent = (): JSX.Element => {
           activeRecipe={deckActiveRecipe}
           viewMode={viewMode}
           onOpenRecipe={handleOpenRecipe}
-          onOpenSearch={() => setUiState({ type: 'search' })}
-          searchQuery={searchQuery}
-          onSearchQueryChange={setSearchQuery}
           onMoveRecipe={moveActiveRecipeBy}
           onImport={openImport}
           onEdit={(recipe) => handleEditRecipe(recipe)}
@@ -385,6 +396,10 @@ const AppContent = (): JSX.Element => {
         open={importOpen}
         onClose={() => setImportOpen(false)}
         onContinue={handleImportContinue}
+        onOpenSearch={() => {
+          setImportOpen(false);
+          setUiState({ type: 'search', query: '' });
+        }}
         onCreateManual={() => {
           const draft: RecipeStagingDraft = {
             title: '',
@@ -404,11 +419,13 @@ const AppContent = (): JSX.Element => {
             rawContent: ''
           };
 
-          setEditingRecipeId(null);
-          setStagingMode('create');
-          setStagingDraft(draft);
           setImportOpen(false);
-          setUiState({ type: 'staging' });
+          setUiState({
+            type: 'staging',
+            draft,
+            mode: 'create',
+            editingRecipeId: null
+          });
         }}
       />
 

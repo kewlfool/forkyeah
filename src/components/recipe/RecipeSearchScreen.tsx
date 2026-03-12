@@ -1,27 +1,36 @@
 import { motion } from 'framer-motion';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePinchToClose } from '../../hooks/usePinchToClose';
 import { searchRecipes, type RecipeSearchResult } from '../../utils/recipeSearch';
 
 interface RecipeSearchScreenProps {
   query: string;
+  onQueryChange: (value: string) => void;
   onClose: () => void;
   onImportUrl: (url: string) => Promise<void>;
 }
 
 export const RecipeSearchScreen = ({
   query,
+  onQueryChange,
   onClose,
   onImportUrl
 }: RecipeSearchScreenProps): JSX.Element => {
   const [results, setResults] = useState<RecipeSearchResult[]>([]);
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   const pinch = usePinchToClose({
     onPinchOut: onClose,
     direction: 'in',
     threshold: 42
   });
+
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
+  }, []);
 
   useEffect(() => {
     const trimmed = query.trim();
@@ -76,6 +85,15 @@ export const RecipeSearchScreen = ({
     >
       <header className="search-header">
         <h2>Search recipes</h2>
+        <input
+          ref={inputRef}
+          type="search"
+          className="search-input"
+          placeholder="Search recipes"
+          aria-label="Search recipes"
+          value={query}
+          onChange={(event) => onQueryChange(event.target.value)}
+        />
       </header>
 
       <div className="search-results">

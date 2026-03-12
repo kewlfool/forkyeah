@@ -13,13 +13,15 @@ interface RecipeImportSheetProps {
   onClose: () => void;
   onContinue: (payload: RecipeImportPayload) => void;
   onCreateManual: () => void;
+  onOpenSearch: () => void;
 }
 
 export const RecipeImportSheet = ({
   open,
   onClose,
   onContinue,
-  onCreateManual
+  onCreateManual,
+  onOpenSearch
 }: RecipeImportSheetProps): JSX.Element => {
   const [url, setUrl] = useState('');
   const [rawText, setRawText] = useState('');
@@ -74,6 +76,22 @@ export const RecipeImportSheet = ({
             onClick={(event) => event.stopPropagation()}
           >
             <h2>Import recipe</h2>
+            <button
+              type="button"
+              className="ghost-button import-search-button"
+              onClick={() => {
+                setUrl('');
+                setRawText('');
+                setFile(null);
+                setFileName(null);
+                if (fileInputRef.current) {
+                  fileInputRef.current.value = '';
+                }
+                onOpenSearch();
+              }}
+            >
+              Search recipes
+            </button>
             <form onSubmit={handleSubmit} className="stack-12" autoComplete="off">
               <label className="form-field">
                 <span className="field-label">Recipe link</span>
