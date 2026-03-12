@@ -24,7 +24,6 @@ interface RecipeState {
   recipes: Recipe[];
   activeRecipeId: string | null;
   viewMode: RecipeViewMode;
-  showDeck: boolean;
   hydrated: boolean;
   deckOrder: string[];
   hydrate: () => Promise<void>;
@@ -33,8 +32,6 @@ interface RecipeState {
   deleteRecipe: (recipeId: string) => void;
   setActiveRecipe: (recipeId: string) => void;
   moveActiveRecipeBy: (offset: 1 | -1) => void;
-  openDeck: () => void;
-  closeDeck: () => void;
   setViewMode: (mode: RecipeViewMode) => void;
 }
 
@@ -71,7 +68,6 @@ export const useRecipeStore = create<RecipeState>((set) => ({
   recipes: [],
   activeRecipeId: null,
   viewMode: 'scroll',
-  showDeck: true,
   hydrated: false,
   deckOrder: [],
 
@@ -83,7 +79,6 @@ export const useRecipeStore = create<RecipeState>((set) => ({
       deckOrder: shuffledOrder,
       activeRecipeId: state.activeRecipeId ?? shuffledOrder[0] ?? null,
       viewMode: viewMode ?? state.viewMode,
-      showDeck: recipes.length > 0,
       hydrated: true
     }));
   },
@@ -96,8 +91,7 @@ export const useRecipeStore = create<RecipeState>((set) => ({
         (a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id)
       ),
       deckOrder: [recipe.id, ...state.deckOrder.filter((id) => id !== recipe.id)],
-      activeRecipeId: recipe.id,
-      showDeck: true
+      activeRecipeId: recipe.id
     }));
 
     void saveRecipe(recipe);
@@ -134,8 +128,7 @@ export const useRecipeStore = create<RecipeState>((set) => ({
       return {
         recipes,
         activeRecipeId,
-        deckOrder,
-        showDeck: recipes.length > 0
+        deckOrder
       };
     });
 
@@ -161,14 +154,6 @@ export const useRecipeStore = create<RecipeState>((set) => ({
         activeRecipeId: state.deckOrder[nextIndex]
       };
     });
-  },
-
-  openDeck: () => {
-    set({ showDeck: true });
-  },
-
-  closeDeck: () => {
-    set({ showDeck: false });
   },
 
   setViewMode: (mode) => {

@@ -320,9 +320,10 @@ export const RecipeScreen = ({ recipe, onClose }: RecipeScreenProps): JSX.Elemen
   return (
     <motion.section
       className="recipe-shell screen-layer"
-      initial={{ opacity: 0, x: 18 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -18 }}
+      initial={{ opacity: 0, scale: 0.985 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.985 }}
+      style={{ transformOrigin: 'center center' }}
       onTouchStart={(event) => {
         pinch.onTouchStart(event);
       }}

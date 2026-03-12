@@ -1,10 +1,10 @@
 import { animate, motion, useMotionValue, useTransform } from 'framer-motion';
-import { ChevronDown, LayoutGrid, List, Plus, Share2, X } from 'lucide-react';
+import { ChevronDown, LayoutGrid, List, Plus } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useHorizontalSwipe } from '../../hooks/useHorizontalSwipe';
 import { useLongPress } from '../../hooks/useLongPress';
 import type { Recipe, RecipeViewMode } from '../../types/models';
 import { formatCookedDate } from '../../utils/recipes';
-import { exportRecipeToPdf } from '../../utils/recipePdf';
 
 interface RecipeDeckScreenProps {
   recipes: Recipe[];
@@ -337,7 +337,7 @@ export const RecipeDeckScreen = ({
   const handleDragEnd = (_: unknown, info: { offset: { x: number }; velocity: { x: number } }) => {
     dragStateRef.current.active = false;
     dragStateRef.current.moved = false;
-    if (!canSwipe || swipeLockRef.current) {
+    if (swipeLockRef.current) {
       dragX.set(0);
       return;
     }
@@ -346,6 +346,32 @@ export const RecipeDeckScreen = ({
     const velocityX = info.velocity.x;
     const threshold = 140;
     const velocityThreshold = 900;
+
+    if (isActiveJiggling) {
+      const shouldDelete = offsetX < -threshold || velocityX < -velocityThreshold;
+      if (shouldDelete) {
+        swipeLockRef.current = true;
+        void animate(dragX, -window.innerWidth * 0.8, {
+          duration: 0.16,
+          ease: 'easeOut'
+        }).then(() => {
+          setJigglingRecipeId(null);
+          onClearImagePrompt();
+          onDelete(activeRecipe.id);
+          dragX.set(0);
+          swipeLockRef.current = false;
+        });
+        return;
+      }
+
+      void animate(dragX, 0, { duration: 0.18, ease: 'easeOut' });
+      return;
+    }
+
+    if (!canSwipe) {
+      dragX.set(0);
+      return;
+    }
 
     if (Math.abs(offsetX) > threshold || Math.abs(velocityX) > velocityThreshold) {
       swipeLockRef.current = true;
@@ -473,7 +499,7 @@ export const RecipeDeckScreen = ({
               onPointerUp={longPress.onPointerUp}
               onPointerCancel={longPress.onPointerCancel}
               onPointerLeave={longPress.onPointerLeave}
-              drag={canSwipe && !isActiveJiggling ? 'x' : false}
+              drag={canSwipe || isActiveJiggling ? 'x' : false}
               dragElastic={0.18}
               dragMomentum={false}
               onDragStart={handleDragStart}
@@ -492,41 +518,6 @@ export const RecipeDeckScreen = ({
               aria-label={`Open ${activeRecipe.title}`}
             >
               <div className={`recipe-card-inner ${isActiveJiggling ? 'is-jiggling' : ''}`}>
-                {isActiveJiggling ? (
-                  <button
-                    type="button"
-                    className="recipe-card-delete"
-                    aria-label="Delete recipe"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      const confirmed = window.confirm('Delete this recipe?');
-                      if (confirmed) {
-                        onDelete(activeRecipe.id);
-                      }
-                    }}
-                    onPointerDown={(event) => event.stopPropagation()}
-                    onPointerUp={(event) => event.stopPropagation()}
-                  >
-                    <X size={14} />
-                  </button>
-                ) : null}
-
-                {isActiveJiggling ? (
-                  <button
-                    type="button"
-                    className="recipe-card-share"
-                    aria-label="Share recipe"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      exportRecipeToPdf(activeRecipe);
-                    }}
-                    onPointerDown={(event) => event.stopPropagation()}
-                    onPointerUp={(event) => event.stopPropagation()}
-                  >
-                    <Share2 size={14} />
-                  </button>
-                ) : null}
-
                 {renderRecipeCardContent(activeRecipe)}
 
                 {isActiveJiggling ? (
@@ -705,6 +696,19 @@ const ScrollRecipeCard = ({
     delay: 430,
     shouldStart: () => canStartLongPress()
   });
+  const swipe = useHorizontalSwipe({
+    onSwipeLeft: () => {
+      if (!isJiggling) {
+        return;
+      }
+      suppressClickRef.current = true;
+      onBeforeEdit();
+      onStopJiggle();
+      onDelete(recipe.id);
+    },
+    threshold: 64,
+    disabled: !isJiggling
+  });
 
   const handleTap = () => {
     if (suppressClickRef.current) {
@@ -738,6 +742,10 @@ const ScrollRecipeCard = ({
       className={`recipe-card recipe-scroll-card ${isJiggling ? 'recipe-card-jiggle' : ''}`}
       style={{ zIndex }}
       onClick={handleTap}
+      onTouchStart={swipe.onTouchStart}
+      onTouchMove={swipe.onTouchMove}
+      onTouchEnd={swipe.onTouchEnd}
+      onTouchCancel={swipe.onTouchCancel}
       onPointerDown={longPress.onPointerDown}
       onPointerMove={longPress.onPointerMove}
       onPointerUp={longPress.onPointerUp}
@@ -748,39 +756,6 @@ const ScrollRecipeCard = ({
       aria-label={`Open ${recipe.title}`}
     >
       <div className={`recipe-card-inner ${isJiggling ? 'is-jiggling' : ''}`}>
-        {isJiggling ? (
-          <button
-            type="button"
-            className="recipe-card-delete"
-            aria-label="Delete recipe"
-            onClick={(event) => {
-              event.stopPropagation();
-              const confirmed = window.confirm('Delete this recipe?');
-              if (confirmed) {
-                onDelete(recipe.id);
-              }
-            }}
-            onPointerDown={(event) => event.stopPropagation()}
-            onPointerUp={(event) => event.stopPropagation()}
-          >
-            <X size={14} />
-          </button>
-        ) : null}
-        {isJiggling ? (
-          <button
-            type="button"
-            className="recipe-card-share"
-            aria-label="Share recipe"
-            onClick={(event) => {
-              event.stopPropagation();
-              exportRecipeToPdf(recipe);
-            }}
-            onPointerDown={(event) => event.stopPropagation()}
-            onPointerUp={(event) => event.stopPropagation()}
-          >
-            <Share2 size={14} />
-          </button>
-        ) : null}
         {renderRecipeCardContent(recipe)}
 
         {isJiggling ? (
@@ -835,6 +810,19 @@ const RecipeRow = ({
     },
     delay: 430
   });
+  const swipe = useHorizontalSwipe({
+    onSwipeLeft: () => {
+      if (!isJiggling) {
+        return;
+      }
+      suppressClickRef.current = true;
+      onBeforeEdit();
+      onStopJiggle();
+      onDelete(recipe.id);
+    },
+    threshold: 64,
+    disabled: !isJiggling
+  });
 
   const handleRowClick = () => {
     if (suppressClickRef.current) {
@@ -867,42 +855,15 @@ const RecipeRow = ({
       data-recipe-card-id={recipe.id}
       className={`row-card recipe-row-card ${isJiggling ? 'recipe-row-jiggle' : ''}`}
     >
-      {isJiggling ? (
-        <button
-          type="button"
-          className="recipe-card-delete"
-          aria-label="Delete recipe"
-          onClick={(event) => {
-            event.stopPropagation();
-            const confirmed = window.confirm('Delete this recipe?');
-            if (confirmed) {
-              onDelete(recipe.id);
-            }
-          }}
-        >
-          <X size={14} />
-        </button>
-      ) : null}
-      {isJiggling ? (
-        <button
-          type="button"
-          className="recipe-row-share"
-          aria-label="Share recipe"
-          onClick={(event) => {
-            event.stopPropagation();
-            exportRecipeToPdf(recipe);
-          }}
-          onPointerDown={(event) => event.stopPropagation()}
-          onPointerUp={(event) => event.stopPropagation()}
-        >
-          <Share2 size={14} />
-        </button>
-      ) : null}
       <div
         role="button"
         tabIndex={0}
         className="row-card-main"
         onClick={handleRowClick}
+        onTouchStart={swipe.onTouchStart}
+        onTouchMove={swipe.onTouchMove}
+        onTouchEnd={swipe.onTouchEnd}
+        onTouchCancel={swipe.onTouchCancel}
         onPointerDown={longPress.onPointerDown}
         onPointerMove={longPress.onPointerMove}
         onPointerUp={longPress.onPointerUp}

@@ -43,12 +43,14 @@ export const usePinchToClose = ({
 
         initialDistanceRef.current = getDistance(event.touches);
         activeRef.current = true;
+        event.preventDefault();
       },
       onTouchMove: (event) => {
         if (!activeRef.current || event.touches.length < 2) {
           return;
         }
 
+        event.preventDefault();
         const distance = getDistance(event.touches);
         const delta = distance - initialDistanceRef.current;
         const reachedThreshold = direction === 'out' ? delta >= threshold : -delta >= threshold;

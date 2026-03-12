@@ -99,6 +99,9 @@ textarea {
     0
     12px;
   box-sizing: border-box;
+  background: var(--bg);
+  isolation: isolate;
+  z-index: 0;
 }
 
 .loading-shell {
