@@ -268,7 +268,6 @@ const AppContent = (): JSX.Element => {
 
   const handleOpenRecipe = (recipeId: string) => {
     setUiState({ type: 'recipe', recipeId });
-    setActiveRecipe(recipeId);
   };
 
   const handleSearchImport = async (url: string): Promise<void> => {
@@ -342,6 +341,7 @@ const AppContent = (): JSX.Element => {
           key={openRecipe.id}
           recipe={openRecipe}
           onClose={() => {
+            setActiveRecipe(openRecipe.id);
             setUiState({ type: 'deck' });
           }}
         />
