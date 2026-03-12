@@ -36,9 +36,18 @@ interface ParseLineResult {
 }
 
 const PREVIEW_LIMIT = 20000;
-const SCRAPER_ENDPOINT =
-  import.meta.env.VITE_SCRAPER_URL ||
-  'https://forkyeah-api-972537921250.us-central1.run.app/api/scrape';
+const SCRAPER_ENDPOINT = (() => {
+  const direct = import.meta.env.VITE_SCRAPER_URL as string | undefined;
+  if (direct) {
+    const normalized = direct.replace(/\/$/, '');
+    if (normalized.endsWith('/api/scrape')) {
+      return normalized;
+    }
+    return `${normalized}/api/scrape`;
+  }
+
+  return 'https://forkyeah-api-972537921250.us-central1.run.app/api/scrape';
+})();
 
 GlobalWorkerOptions.workerSrc = pdfWorker;
 
