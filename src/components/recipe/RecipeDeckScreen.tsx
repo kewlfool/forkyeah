@@ -859,14 +859,16 @@ const RecipeRow = ({
         role="button"
         tabIndex={0}
         className="row-card-main"
-        onClick={handleRowClick}
         onTouchStart={swipe.onTouchStart}
         onTouchMove={swipe.onTouchMove}
         onTouchEnd={swipe.onTouchEnd}
         onTouchCancel={swipe.onTouchCancel}
         onPointerDown={longPress.onPointerDown}
         onPointerMove={longPress.onPointerMove}
-        onPointerUp={longPress.onPointerUp}
+        onPointerUp={() => {
+          longPress.onPointerUp();
+          handleRowClick();
+        }}
         onPointerCancel={longPress.onPointerCancel}
         onPointerLeave={longPress.onPointerLeave}
         onKeyDown={(event) => {

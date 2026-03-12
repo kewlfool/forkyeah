@@ -27,7 +27,12 @@ const readFileAsDataUrl = (file: File): Promise<string> =>
     reader.readAsDataURL(file);
   });
 
-type UiScreen = 'empty' | 'deck' | 'recipe' | 'search' | 'staging';
+type UiState =
+  | { type: 'empty' }
+  | { type: 'deck' }
+  | { type: 'search' }
+  | { type: 'staging' }
+  | { type: 'recipe'; recipeId: string };
 
 const AppContent = (): JSX.Element => {
   const hydrateRecipes = useRecipeStore((state) => state.hydrate);
@@ -54,8 +59,7 @@ const AppContent = (): JSX.Element => {
   const [isParsing, setIsParsing] = useState(false);
   const [pendingImageRecipeId, setPendingImageRecipeId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [uiScreen, setUiScreen] = useState<UiScreen>('deck');
-  const [openRecipeId, setOpenRecipeId] = useState<string | null>(null);
+  const [uiState, setUiState] = useState<UiState>({ type: 'deck' });
   const imageInputRef = useRef<HTMLInputElement | null>(null);
 
   useWakeLock();
@@ -82,23 +86,22 @@ const AppContent = (): JSX.Element => {
     }
 
     if (!recipes.length) {
-      if (uiScreen !== 'staging' && uiScreen !== 'search') {
-        setUiScreen('empty');
+      if (uiState.type !== 'staging' && uiState.type !== 'search') {
+        setUiState({ type: 'empty' });
       }
       return;
     }
 
-    if (uiScreen === 'empty') {
-      setUiScreen('deck');
+    if (uiState.type === 'empty') {
+      setUiState({ type: 'deck' });
     }
-  }, [homeHydrated, recipeHydrated, recipes.length, uiScreen]);
+  }, [homeHydrated, recipeHydrated, recipes.length, uiState.type]);
 
   useEffect(() => {
-    if (uiScreen === 'recipe' && openRecipeId && !recipes.some((recipe) => recipe.id === openRecipeId)) {
-      setOpenRecipeId(null);
-      setUiScreen(recipes.length ? 'deck' : 'empty');
+    if (uiState.type === 'recipe' && !recipes.some((recipe) => recipe.id === uiState.recipeId)) {
+      setUiState(recipes.length ? { type: 'deck' } : { type: 'empty' });
     }
-  }, [openRecipeId, recipes, uiScreen]);
+  }, [recipes, uiState]);
 
   if (!recipeHydrated || !homeHydrated) {
     return <main className="app-shell loading-shell">Loading...</main>;
@@ -146,7 +149,7 @@ const AppContent = (): JSX.Element => {
       setEditingRecipeId(null);
       setStagingMode('create');
       setStagingDraft(draft);
-      setUiScreen('staging');
+      setUiState({ type: 'staging' });
     } finally {
       setIsParsing(false);
     }
@@ -161,13 +164,13 @@ const AppContent = (): JSX.Element => {
 
     setStagingDraft(null);
     setEditingRecipeId(null);
-    setUiScreen('deck');
+    setUiState({ type: 'deck' });
   };
 
   const handleDeleteDraft = () => {
     setStagingDraft(null);
     setEditingRecipeId(null);
-    setUiScreen(recipes.length ? 'deck' : 'empty');
+    setUiState(recipes.length ? { type: 'deck' } : { type: 'empty' });
   };
 
   const handleEditRecipe = (recipe: Recipe) => {
@@ -192,7 +195,7 @@ const AppContent = (): JSX.Element => {
     setEditingRecipeId(recipe.id);
     setStagingMode('edit');
     setStagingDraft(draft);
-    setUiScreen('staging');
+    setUiState({ type: 'staging' });
   };
 
   const handleUpdateImage = (recipeId: string, imageUrl: string) => {
@@ -237,7 +240,8 @@ const AppContent = (): JSX.Element => {
       return;
     }
 
-    const targetRecipeId = pendingImageRecipeId ?? activeRecipe?.id ?? null;
+    const targetRecipeId =
+      pendingImageRecipeId ?? (uiState.type === 'recipe' ? uiState.recipeId : activeRecipe?.id ?? null);
     try {
       const dataUrl = await readFileAsDataUrl(file);
       if (dataUrl && targetRecipeId) {
@@ -256,10 +260,16 @@ const AppContent = (): JSX.Element => {
         .map((id) => recipes.find((recipe) => recipe.id === id))
         .filter((recipe): recipe is Recipe => Boolean(recipe))
     : recipes;
-  const openRecipe = openRecipeId
-    ? recipes.find((recipe) => recipe.id === openRecipeId) ?? null
-    : activeRecipe;
+  const openRecipe =
+    uiState.type === 'recipe'
+      ? recipes.find((recipe) => recipe.id === uiState.recipeId) ?? null
+      : null;
   const deckActiveRecipe = activeRecipe ?? deckRecipes[0] ?? null;
+
+  const handleOpenRecipe = (recipeId: string) => {
+    setUiState({ type: 'recipe', recipeId });
+    setActiveRecipe(recipeId);
+  };
 
   const handleSearchImport = async (url: string): Promise<void> => {
     setIsParsing(true);
@@ -287,7 +297,7 @@ const AppContent = (): JSX.Element => {
       setEditingRecipeId(null);
       setStagingMode('create');
       setStagingDraft(draft);
-      setUiScreen('staging');
+      setUiState({ type: 'staging' });
     } catch {
       // ignore
     } finally {
@@ -296,7 +306,7 @@ const AppContent = (): JSX.Element => {
   };
 
   const screen = (() => {
-    if (uiScreen === 'staging' && stagingDraft) {
+    if (uiState.type === 'staging' && stagingDraft) {
       return (
         <RecipeStagingScreen
           key="staging"
@@ -311,35 +321,34 @@ const AppContent = (): JSX.Element => {
       );
     }
 
-    if (uiScreen === 'empty') {
+    if (uiState.type === 'empty') {
       return <RecipeEmptyState key="empty" onImport={openImport} />;
     }
 
-    if (uiScreen === 'search') {
+    if (uiState.type === 'search') {
       return (
         <RecipeSearchScreen
           key="search"
           query={searchQuery}
-          onClose={() => setUiScreen('deck')}
+          onClose={() => setUiState({ type: 'deck' })}
           onImportUrl={handleSearchImport}
         />
       );
     }
 
-    if (uiScreen === 'recipe' && openRecipe) {
+    if (uiState.type === 'recipe' && openRecipe) {
       return (
         <RecipeScreen
           key={openRecipe.id}
           recipe={openRecipe}
           onClose={() => {
-            setOpenRecipeId(null);
-            setUiScreen('deck');
+            setUiState({ type: 'deck' });
           }}
         />
       );
     }
 
-    if (uiScreen === 'deck' && deckActiveRecipe) {
+    if (deckActiveRecipe) {
       return (
         <RecipeDeckScreen
           key="deck"
@@ -347,12 +356,8 @@ const AppContent = (): JSX.Element => {
           deckRecipes={deckRecipes}
           activeRecipe={deckActiveRecipe}
           viewMode={viewMode}
-          onOpenRecipe={(recipeId) => {
-            setActiveRecipe(recipeId);
-            setOpenRecipeId(recipeId);
-            setUiScreen('recipe');
-          }}
-          onOpenSearch={() => setUiScreen('search')}
+          onOpenRecipe={handleOpenRecipe}
+          onOpenSearch={() => setUiState({ type: 'search' })}
           searchQuery={searchQuery}
           onSearchQueryChange={setSearchQuery}
           onMoveRecipe={moveActiveRecipeBy}
@@ -367,7 +372,7 @@ const AppContent = (): JSX.Element => {
       );
     }
 
-    return null;
+    return <RecipeEmptyState key="empty-fallback" onImport={openImport} />;
   })();
 
   return (
@@ -403,7 +408,7 @@ const AppContent = (): JSX.Element => {
           setStagingMode('create');
           setStagingDraft(draft);
           setImportOpen(false);
-          setUiScreen('staging');
+          setUiState({ type: 'staging' });
         }}
       />
 
