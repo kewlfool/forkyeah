@@ -373,11 +373,18 @@ export const RecipeScreen = ({ recipe, onClose }: RecipeScreenProps): JSX.Elemen
 
       <div className="recipe-content" ref={contentRef}>
         <div className="recipe-hero">
-          <div
-            className={`recipe-hero-image ${hasHeroImage ? 'has-image' : ''}`}
-            role="presentation"
-            style={hasHeroImage ? { backgroundImage: `url(${recipe.imageUrl})` } : undefined}
-          />
+          <div className={`recipe-hero-image ${hasHeroImage ? 'has-image' : ''}`} role="presentation">
+            {hasHeroImage ? (
+              <img
+                src={recipe.imageUrl}
+                alt=""
+                className="recipe-hero-image-img"
+                loading="eager"
+                decoding="async"
+                draggable={false}
+              />
+            ) : null}
+          </div>
           <div className="recipe-timing">
             <div>
               <span className="muted">Prep</span>

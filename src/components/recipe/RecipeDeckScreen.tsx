@@ -604,11 +604,16 @@ const renderRecipeCardContent = (recipe: Recipe): JSX.Element => {
   return (
     <div className={`recipe-card-main ${hasImage ? 'has-image' : ''}`}>
       {hasImage ? (
-        <div
-          className="recipe-card-thumb"
-          role="presentation"
-          style={{ backgroundImage: `url(${recipe.imageUrl})` }}
-        />
+        <div className="recipe-card-thumb" role="presentation">
+          <img
+            src={recipe.imageUrl}
+            alt=""
+            className="recipe-card-thumb-image"
+            loading="lazy"
+            decoding="async"
+            draggable={false}
+          />
+        </div>
       ) : null}
       <div className="recipe-card-body">
         <strong>{recipe.title || 'Untitled recipe'}</strong>
@@ -854,11 +859,18 @@ const RecipeRow = ({
         aria-label={`Open ${recipe.title}`}
       >
         <div className="recipe-row-thumb-wrap">
-          <div
-            className="recipe-row-thumb"
-            role="presentation"
-            style={recipe.imageUrl ? { backgroundImage: `url(${recipe.imageUrl})` } : undefined}
-          />
+          <div className="recipe-row-thumb" role="presentation">
+            {recipe.imageUrl ? (
+              <img
+                src={recipe.imageUrl}
+                alt=""
+                className="recipe-row-thumb-image"
+                loading="lazy"
+                decoding="async"
+                draggable={false}
+              />
+            ) : null}
+          </div>
           {isJiggling ? (
             <button
               type="button"

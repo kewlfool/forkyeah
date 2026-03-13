@@ -17,15 +17,8 @@ import {
   type RecipeInput
 } from './store/useRecipeStore';
 import type { Recipe } from './types/models';
+import { compressImageFile } from './utils/imageCompression';
 import { parseRecipeImport } from './utils/recipeParsing';
-
-const readFileAsDataUrl = (file: File): Promise<string> =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
 
 type RootRoute = { type: 'empty' } | { type: 'deck' };
 type SearchRoute = { type: 'search'; query: string };
@@ -381,7 +374,7 @@ const AppContent = (): JSX.Element => {
       pendingImageRecipeId ?? (latestRoute.type === 'recipe' ? latestRoute.recipeId : deckActiveRecipe?.id ?? null);
 
     try {
-      const dataUrl = await readFileAsDataUrl(file);
+      const dataUrl = await compressImageFile(file);
       if (dataUrl && targetRecipeId) {
         handleUpdateImage(targetRecipeId, dataUrl);
       }

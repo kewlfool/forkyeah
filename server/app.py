@@ -1,4 +1,3 @@
-import base64
 import gzip
 import json
 import os
@@ -24,9 +23,7 @@ app.add_middleware(
 )
 
 
-IMAGE_MAX_BYTES = 2_500_000
 HTML_PREVIEW_LIMIT = 20_000
-IMAGE_USER_AGENT = "Mozilla/5.0 (compatible; forkyeah/1.0; +https://forkyeah.app)"
 RECIPE_USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:124.0) Gecko/20100101 Firefox/124.0"
 SEARXNG_URL = os.getenv("SEARXNG_URL", "").rstrip("/")
 SEARCH_USER_AGENT = "Mozilla/5.0 (compatible; forkyeah-search/1.0; +https://forkyeah.app)"
@@ -258,39 +255,12 @@ def finalize_recipe_response(data: Dict[str, Any], source_label: str) -> Dict[st
     data["notes"] = first_non_empty(data.get("notes"))
     data["rawContent"] = preview_text(first_non_empty(data.get("rawContent"), source_label))
 
-    image_url = first_non_empty(data.get("imageUrl"))
-    if image_url and not image_url.startswith("data:"):
-        image_data_url = fetch_image_data_url(image_url)
-        if image_data_url:
-            image_url = image_data_url
-    data["imageUrl"] = image_url
+    data["imageUrl"] = first_non_empty(data.get("imageUrl"))
 
     if not has_recipe_content(data):
         data["importWarning"] = IMPORT_WARNING
 
     return data
-
-
-def fetch_image_data_url(url: str) -> str:
-    if not url:
-        return ""
-
-    try:
-        request = Request(url, headers={"User-Agent": IMAGE_USER_AGENT})
-        with urlopen(request, timeout=10) as response:
-            content_type = response.headers.get("Content-Type", "")
-            content_type = content_type.split(";", 1)[0].strip().lower()
-            if not content_type.startswith("image/"):
-                return ""
-            data = response.read(IMAGE_MAX_BYTES + 1)
-            if len(data) > IMAGE_MAX_BYTES:
-                return ""
-    except Exception:
-        return ""
-
-    encoded = base64.b64encode(data).decode("ascii")
-    return f"data:{content_type};base64,{encoded}"
-
 
 def fetch_recipe_html(url: str) -> str:
     request = Request(
