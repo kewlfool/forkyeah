@@ -212,14 +212,6 @@ const AppContent = (): JSX.Element => {
     dispatchNavigation({ type: 'sync-root', hasRecipes: recipes.length > 0 });
   }, [homeHydrated, recipeHydrated, recipes.length]);
 
-  if (!recipeHydrated || !homeHydrated) {
-    return <main className="app-shell loading-shell">Loading...</main>;
-  }
-
-  if (isParsing) {
-    return <main className="app-shell loading-shell">Parsing recipe...</main>;
-  }
-
   const currentRoute = navigationState.stack[navigationState.stack.length - 1];
   const deckRecipes = deckOrder.length
     ? deckOrder
