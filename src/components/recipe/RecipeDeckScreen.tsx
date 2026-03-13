@@ -46,6 +46,13 @@ const modeIcon = (mode: RecipeViewMode): JSX.Element => {
   return <LayoutGrid size={17} />;
 };
 
+const normalizeViewMode = (mode: RecipeViewMode): RecipeViewMode => {
+  if (viewModeOrder.includes(mode)) {
+    return mode;
+  }
+  return 'scroll';
+};
+
 const stackOffsetForDepth = (depth: number, height: number): { x: number; y: number } => {
   const yStep = Math.min(18, height * 0.04);
   return {
@@ -85,6 +92,7 @@ export const RecipeDeckScreen = ({
   const dragRotateY = useTransform(dragX, [-180, 0, 180], [0, 0, 0]);
   const cardTiltX = 0;
   const dragThreshold = 160;
+  const safeViewMode = normalizeViewMode(viewMode);
   const cardRecipes = deckRecipes && deckRecipes.length ? deckRecipes : recipes;
   const totalCount = recipes.length;
   const isActiveJiggling = jigglingRecipeId === activeRecipe.id;
@@ -116,7 +124,13 @@ export const RecipeDeckScreen = ({
     dragX.set(0);
     swipeLockRef.current = false;
     dragStateRef.current = { active: false, moved: false };
-  }, [activeRecipe.id, viewMode]);
+  }, [activeRecipe.id, safeViewMode]);
+
+  useEffect(() => {
+    if (safeViewMode !== viewMode) {
+      onSetViewMode(safeViewMode);
+    }
+  }, [onSetViewMode, safeViewMode, viewMode]);
 
   useEffect(() => {
     if (!jigglingRecipeId) {
@@ -378,7 +392,7 @@ export const RecipeDeckScreen = ({
   };
 
   const cycleViewMode = () => {
-    const currentIndex = viewModeOrder.indexOf(viewMode);
+    const currentIndex = viewModeOrder.indexOf(safeViewMode);
     const nextMode = viewModeOrder[(currentIndex + 1) % viewModeOrder.length];
     onSetViewMode(nextMode);
   };
@@ -399,7 +413,7 @@ export const RecipeDeckScreen = ({
         </div>
       </header>
 
-      {viewMode === 'card' ? (
+      {safeViewMode === 'card' ? (
         <div className="recipe-deck">
           <div className="recipe-card-stack" ref={stackRef}>
             {stackMetrics.map((item, index) => {
@@ -525,7 +539,7 @@ export const RecipeDeckScreen = ({
           </div>
 
         </div>
-      ) : viewMode === 'scroll' ? (
+      ) : safeViewMode === 'scroll' ? (
         <div className="recipe-scroll-view" ref={scrollRef} onScroll={handleScroll}>
           <div className="recipe-scroll-stack">
             {cardRecipes.map((recipe, index) => (
@@ -580,7 +594,7 @@ export const RecipeDeckScreen = ({
           onClick={cycleViewMode}
           aria-label="Switch recipe view mode"
         >
-          {modeIcon(viewMode)}
+          {modeIcon(safeViewMode)}
         </button>
         {showImportFab ? (
           <button

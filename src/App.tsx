@@ -117,13 +117,9 @@ const navigationReducer = (state: NavigationState, action: NavigationAction): Na
       };
 
     case 'open-staging': {
-      const current = state.stack[state.stack.length - 1];
-      const baseStack =
-        current.type === 'search' ? ([state.stack[0], current] as [RootRoute, ...NavRoute[]]) : ([state.stack[0]] as [RootRoute, ...NavRoute[]]);
-
       return {
         stack: [
-          ...baseStack,
+          state.stack[0],
           {
             type: 'staging',
             draft: action.draft,
@@ -181,12 +177,20 @@ const AppContent = (): JSX.Element => {
   const [navigationState, dispatchNavigation] = useReducer(navigationReducer, undefined, buildInitialNavigationState);
   const navigationStateRef = useRef(navigationState);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const mountedRef = useRef(true);
+  const parseSessionRef = useRef(0);
 
   useWakeLock();
 
   useEffect(() => {
     navigationStateRef.current = navigationState;
   }, [navigationState]);
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     void Promise.all([hydrateRecipes(), hydrateHome()]);
@@ -249,6 +253,8 @@ const AppContent = (): JSX.Element => {
   };
 
   const handleImportContinue = async (payload: RecipeImportPayload) => {
+    const parseSession = parseSessionRef.current + 1;
+    parseSessionRef.current = parseSession;
     dispatchNavigation({ type: 'close-import' });
     setIsParsing(true);
 
@@ -279,6 +285,10 @@ const AppContent = (): JSX.Element => {
         importWarning: parsed.importWarning
       };
 
+      if (!mountedRef.current || parseSessionRef.current !== parseSession) {
+        return;
+      }
+
       dispatchNavigation({
         type: 'open-staging',
         draft,
@@ -286,7 +296,9 @@ const AppContent = (): JSX.Element => {
         editingRecipeId: null
       });
     } finally {
-      setIsParsing(false);
+      if (mountedRef.current && parseSessionRef.current === parseSession) {
+        setIsParsing(false);
+      }
     }
   };
 
@@ -403,9 +415,15 @@ const AppContent = (): JSX.Element => {
   };
 
   const handleSearchImport = async (url: string): Promise<void> => {
+    const parseSession = parseSessionRef.current + 1;
+    parseSessionRef.current = parseSession;
     setIsParsing(true);
     try {
       const parsed = await parseRecipeImport({ url });
+      if (!mountedRef.current || parseSessionRef.current !== parseSession) {
+        return;
+      }
+
       const latestRoute = navigationStateRef.current.stack[navigationStateRef.current.stack.length - 1];
       if (latestRoute.type !== 'search') {
         return;
@@ -439,7 +457,9 @@ const AppContent = (): JSX.Element => {
     } catch {
       // ignore
     } finally {
-      setIsParsing(false);
+      if (mountedRef.current && parseSessionRef.current === parseSession) {
+        setIsParsing(false);
+      }
     }
   };
 
