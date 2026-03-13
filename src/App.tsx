@@ -226,12 +226,23 @@ const AppContent = (): JSX.Element => {
         .map((id) => recipes.find((recipe) => recipe.id === id))
         .filter((recipe): recipe is Recipe => Boolean(recipe))
     : recipes;
-  const deckActiveRecipe = activeRecipe ?? deckRecipes[0] ?? recipes[0] ?? null;
+  const deckActiveRecipe =
+    activeRecipe && deckRecipes.some((recipe) => recipe.id === activeRecipe.id)
+      ? activeRecipe
+      : deckRecipes[0] ?? recipes[0] ?? null;
   const liveRecipe =
     currentRoute.type === 'recipe'
       ? recipes.find((recipe) => recipe.id === currentRoute.recipeId) ?? null
       : null;
   const openRecipe = currentRoute.type === 'recipe' ? liveRecipe ?? currentRoute.fallbackRecipe : null;
+
+  useEffect(() => {
+    if (currentRoute.type !== 'recipe' || openRecipe) {
+      return;
+    }
+
+    dispatchNavigation({ type: 'close-top' });
+  }, [currentRoute, openRecipe]);
 
   const openImport = () => {
     dispatchNavigation({ type: 'open-import' });
@@ -480,7 +491,9 @@ const AppContent = (): JSX.Element => {
             recipe={openRecipe}
             onClose={() => dispatchNavigation({ type: 'close-top' })}
           />
-        ) : null;
+        ) : (
+          <RecipeEmptyState key="recipe-missing" onImport={openImport} />
+        );
 
       case 'deck':
       default:

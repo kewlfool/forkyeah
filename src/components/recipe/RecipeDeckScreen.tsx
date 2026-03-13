@@ -24,7 +24,7 @@ interface RecipeDeckScreenProps {
 
 const collectTags = (recipe: Recipe): string[] => {
   const deduped = new Set<string>();
-  for (const item of [...recipe.categories, ...recipe.cuisines, ...recipe.tags]) {
+  for (const item of [...(recipe.categories ?? []), ...(recipe.cuisines ?? []), ...(recipe.tags ?? [])]) {
     const trimmed = item.trim();
     if (trimmed) {
       deduped.add(trimmed);
