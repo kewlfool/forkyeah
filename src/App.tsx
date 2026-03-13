@@ -1,5 +1,5 @@
 import { AnimatePresence } from 'framer-motion';
-import { useEffect, useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useReducer, useRef, useState, type ChangeEvent } from 'react';
 import { RecipeDeckScreen } from './components/recipe/RecipeDeckScreen';
 import { RecipeEmptyState } from './components/recipe/RecipeEmptyState';
 import { RecipeImportSheet, type RecipeImportPayload } from './components/recipe/RecipeImportSheet';
@@ -27,18 +27,143 @@ const readFileAsDataUrl = (file: File): Promise<string> =>
     reader.readAsDataURL(file);
   });
 
-type UiState =
-  | { type: 'empty' }
-  | { type: 'deck' }
-  | { type: 'search'; query: string; returnTo: { type: 'empty' } | { type: 'deck' } }
+type RootRoute = { type: 'empty' } | { type: 'deck' };
+type SearchRoute = { type: 'search'; query: string };
+type RecipeRoute = { type: 'recipe'; recipeId: string; fallbackRecipe: Recipe };
+type StagingRoute = {
+  type: 'staging';
+  draft: RecipeStagingDraft;
+  mode: 'create' | 'edit';
+  editingRecipeId: string | null;
+};
+type NavRoute = RootRoute | SearchRoute | RecipeRoute | StagingRoute;
+
+interface NavigationState {
+  stack: [RootRoute, ...NavRoute[]];
+  importSheetOpen: boolean;
+}
+
+type NavigationAction =
+  | { type: 'sync-root'; hasRecipes: boolean }
+  | { type: 'open-import' }
+  | { type: 'close-import' }
+  | { type: 'open-search' }
+  | { type: 'set-search-query'; query: string }
+  | { type: 'open-recipe'; recipe: Recipe }
   | {
-      type: 'staging';
+      type: 'open-staging';
       draft: RecipeStagingDraft;
       mode: 'create' | 'edit';
       editingRecipeId: string | null;
-      returnTo: { type: 'empty' } | { type: 'deck' } | { type: 'search'; query: string; returnTo: { type: 'empty' } | { type: 'deck' } };
     }
-  | { type: 'recipe'; recipeId: string; fallbackRecipe: Recipe; returnTo: { type: 'empty' } | { type: 'deck' } };
+  | { type: 'close-top' }
+  | { type: 'reset-to-root'; hasRecipes: boolean };
+
+const rootRouteForRecipes = (hasRecipes: boolean): RootRoute => (hasRecipes ? { type: 'deck' } : { type: 'empty' });
+
+const buildInitialNavigationState = (): NavigationState => ({
+  stack: [{ type: 'deck' }],
+  importSheetOpen: false
+});
+
+const isRootRoute = (route: NavRoute): route is RootRoute => route.type === 'deck' || route.type === 'empty';
+
+const replaceRootRoute = (stack: [RootRoute, ...NavRoute[]], root: RootRoute): [RootRoute, ...NavRoute[]] => {
+  const rest = stack.slice(1).filter((route) => !isRootRoute(route));
+  return [root, ...rest];
+};
+
+const navigationReducer = (state: NavigationState, action: NavigationAction): NavigationState => {
+  switch (action.type) {
+    case 'sync-root': {
+      const nextRoot = rootRouteForRecipes(action.hasRecipes);
+      if (state.stack[0].type === nextRoot.type) {
+        return state;
+      }
+      return {
+        ...state,
+        stack: replaceRootRoute(state.stack, nextRoot)
+      };
+    }
+
+    case 'open-import':
+      return { ...state, importSheetOpen: true };
+
+    case 'close-import':
+      return state.importSheetOpen ? { ...state, importSheetOpen: false } : state;
+
+    case 'open-search':
+      return {
+        stack: [state.stack[0], { type: 'search', query: '' }],
+        importSheetOpen: false
+      };
+
+    case 'set-search-query': {
+      const current = state.stack[state.stack.length - 1];
+      if (current.type !== 'search') {
+        return state;
+      }
+
+      return {
+        ...state,
+        stack: [
+          state.stack[0],
+          ...state.stack.slice(1, -1),
+          { ...current, query: action.query }
+        ] as [RootRoute, ...NavRoute[]]
+      };
+    }
+
+    case 'open-recipe':
+      return {
+        stack: [
+          state.stack[0],
+          { type: 'recipe', recipeId: action.recipe.id, fallbackRecipe: action.recipe }
+        ],
+        importSheetOpen: false
+      };
+
+    case 'open-staging': {
+      const current = state.stack[state.stack.length - 1];
+      const baseStack =
+        current.type === 'search' ? ([state.stack[0], current] as [RootRoute, ...NavRoute[]]) : ([state.stack[0]] as [RootRoute, ...NavRoute[]]);
+
+      return {
+        stack: [
+          ...baseStack,
+          {
+            type: 'staging',
+            draft: action.draft,
+            mode: action.mode,
+            editingRecipeId: action.editingRecipeId
+          }
+        ],
+        importSheetOpen: false
+      };
+    }
+
+    case 'close-top':
+      if (state.stack.length <= 1) {
+        return {
+          ...state,
+          importSheetOpen: false
+        };
+      }
+      return {
+        ...state,
+        stack: state.stack.slice(0, -1) as [RootRoute, ...NavRoute[]]
+      };
+
+    case 'reset-to-root':
+      return {
+        stack: [rootRouteForRecipes(action.hasRecipes)],
+        importSheetOpen: false
+      };
+
+    default:
+      return state;
+  }
+};
 
 const AppContent = (): JSX.Element => {
   const hydrateRecipes = useRecipeStore((state) => state.hydrate);
@@ -58,13 +183,17 @@ const AppContent = (): JSX.Element => {
   const hydrateHome = useHomeStore((state) => state.hydrate);
   const homeHydrated = useHomeStore((state) => state.hydrated);
 
-  const [importOpen, setImportOpen] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
   const [pendingImageRecipeId, setPendingImageRecipeId] = useState<string | null>(null);
-  const [uiState, setUiState] = useState<UiState>({ type: 'deck' });
+  const [navigationState, dispatchNavigation] = useReducer(navigationReducer, undefined, buildInitialNavigationState);
+  const navigationStateRef = useRef(navigationState);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
 
   useWakeLock();
+
+  useEffect(() => {
+    navigationStateRef.current = navigationState;
+  }, [navigationState]);
 
   useEffect(() => {
     void Promise.all([hydrateRecipes(), hydrateHome()]);
@@ -87,17 +216,8 @@ const AppContent = (): JSX.Element => {
       return;
     }
 
-    if (!recipes.length) {
-      if (uiState.type !== 'staging' && uiState.type !== 'search' && uiState.type !== 'recipe') {
-        setUiState({ type: 'empty' });
-      }
-      return;
-    }
-
-    if (uiState.type === 'empty') {
-      setUiState({ type: 'deck' });
-    }
-  }, [homeHydrated, recipeHydrated, recipes.length, uiState.type]);
+    dispatchNavigation({ type: 'sync-root', hasRecipes: recipes.length > 0 });
+  }, [homeHydrated, recipeHydrated, recipes.length]);
 
   if (!recipeHydrated || !homeHydrated) {
     return <main className="app-shell loading-shell">Loading...</main>;
@@ -107,12 +227,25 @@ const AppContent = (): JSX.Element => {
     return <main className="app-shell loading-shell">Parsing recipe...</main>;
   }
 
+  const currentRoute = navigationState.stack[navigationState.stack.length - 1];
+  const deckRecipes = deckOrder.length
+    ? deckOrder
+        .map((id) => recipes.find((recipe) => recipe.id === id))
+        .filter((recipe): recipe is Recipe => Boolean(recipe))
+    : recipes;
+  const deckActiveRecipe = activeRecipe ?? deckRecipes[0] ?? recipes[0] ?? null;
+  const liveRecipe =
+    currentRoute.type === 'recipe'
+      ? recipes.find((recipe) => recipe.id === currentRoute.recipeId) ?? null
+      : null;
+  const openRecipe = currentRoute.type === 'recipe' ? liveRecipe ?? currentRoute.fallbackRecipe : null;
+
   const openImport = () => {
-    setImportOpen(true);
+    dispatchNavigation({ type: 'open-import' });
   };
 
   const handleImportContinue = async (payload: RecipeImportPayload) => {
-    setImportOpen(false);
+    dispatchNavigation({ type: 'close-import' });
     setIsParsing(true);
 
     try {
@@ -142,12 +275,11 @@ const AppContent = (): JSX.Element => {
         importWarning: parsed.importWarning
       };
 
-      setUiState({
-        type: 'staging',
+      dispatchNavigation({
+        type: 'open-staging',
         draft,
         mode: 'create',
-        editingRecipeId: null,
-        returnTo: recipes.length ? { type: 'deck' } : { type: 'empty' }
+        editingRecipeId: null
       });
     } finally {
       setIsParsing(false);
@@ -155,27 +287,24 @@ const AppContent = (): JSX.Element => {
   };
 
   const handleAccept = (input: RecipeInput) => {
-    if (uiState.type !== 'staging') {
+    if (currentRoute.type !== 'staging') {
       return;
     }
 
-    if (uiState.editingRecipeId) {
-      updateRecipe(uiState.editingRecipeId, input);
-      setActiveRecipe(uiState.editingRecipeId);
+    let nextRecipeId: string;
+    if (currentRoute.editingRecipeId) {
+      updateRecipe(currentRoute.editingRecipeId, input);
+      nextRecipeId = currentRoute.editingRecipeId;
     } else {
-      const recipeId = createRecipe(input);
-      setActiveRecipe(recipeId);
+      nextRecipeId = createRecipe(input);
     }
 
-    setUiState({ type: 'deck' });
+    setActiveRecipe(nextRecipeId);
+    dispatchNavigation({ type: 'reset-to-root', hasRecipes: true });
   };
 
   const handleDeleteDraft = () => {
-    if (uiState.type !== 'staging') {
-      return;
-    }
-
-    setUiState(uiState.returnTo);
+    dispatchNavigation({ type: 'close-top' });
   };
 
   const handleEditRecipe = (recipe: Recipe) => {
@@ -197,12 +326,11 @@ const AppContent = (): JSX.Element => {
       rawContent: recipe.notes ?? ''
     };
 
-    setUiState({
-      type: 'staging',
+    dispatchNavigation({
+      type: 'open-staging',
       draft,
       mode: 'edit',
-      editingRecipeId: recipe.id,
-      returnTo: { type: 'deck' }
+      editingRecipeId: recipe.id
     });
   };
 
@@ -248,8 +376,10 @@ const AppContent = (): JSX.Element => {
       return;
     }
 
+    const latestRoute = navigationStateRef.current.stack[navigationStateRef.current.stack.length - 1];
     const targetRecipeId =
-      pendingImageRecipeId ?? (uiState.type === 'recipe' ? uiState.recipeId : activeRecipe?.id ?? null);
+      pendingImageRecipeId ?? (latestRoute.type === 'recipe' ? latestRoute.recipeId : deckActiveRecipe?.id ?? null);
+
     try {
       const dataUrl = await readFileAsDataUrl(file);
       if (dataUrl && targetRecipeId) {
@@ -263,33 +393,20 @@ const AppContent = (): JSX.Element => {
     }
   };
 
-  const deckRecipes = deckOrder.length
-    ? deckOrder
-        .map((id) => recipes.find((recipe) => recipe.id === id))
-        .filter((recipe): recipe is Recipe => Boolean(recipe))
-    : recipes;
-  const liveOpenRecipe =
-    uiState.type === 'recipe'
-      ? recipes.find((recipe) => recipe.id === uiState.recipeId) ?? null
-      : null;
-  const openRecipe = uiState.type === 'recipe' ? liveOpenRecipe ?? uiState.fallbackRecipe : null;
-  const deckActiveRecipe = activeRecipe ?? deckRecipes[0] ?? recipes[0] ?? null;
-
   const handleOpenRecipe = (recipe: Recipe) => {
-    setUiState({
-      type: 'recipe',
-      recipeId: recipe.id,
-      fallbackRecipe: recipe,
-      returnTo: recipes.length ? { type: 'deck' } : { type: 'empty' }
-    });
+    setActiveRecipe(recipe.id);
+    dispatchNavigation({ type: 'open-recipe', recipe });
   };
-
-  const searchQuery = uiState.type === 'search' ? uiState.query : '';
 
   const handleSearchImport = async (url: string): Promise<void> => {
     setIsParsing(true);
     try {
       const parsed = await parseRecipeImport({ url });
+      const latestRoute = navigationStateRef.current.stack[navigationStateRef.current.stack.length - 1];
+      if (latestRoute.type !== 'search') {
+        return;
+      }
+
       const draft: RecipeStagingDraft = {
         title: parsed.title,
         description: parsed.description,
@@ -309,12 +426,11 @@ const AppContent = (): JSX.Element => {
         importWarning: parsed.importWarning
       };
 
-      setUiState({
-        type: 'staging',
+      dispatchNavigation({
+        type: 'open-staging',
         draft,
         mode: 'create',
-        editingRecipeId: null,
-        returnTo: uiState.type === 'search' ? uiState : { type: 'deck' }
+        editingRecipeId: null
       });
     } catch {
       // ignore
@@ -323,79 +439,79 @@ const AppContent = (): JSX.Element => {
     }
   };
 
+  const handleDeleteRecipe = (recipeId: string) => {
+    const hasRecipesAfterDelete = recipes.some((recipe) => recipe.id !== recipeId);
+    deleteRecipe(recipeId);
+
+    const latestRoute = navigationStateRef.current.stack[navigationStateRef.current.stack.length - 1];
+    if (latestRoute.type === 'recipe' && latestRoute.recipeId === recipeId) {
+      dispatchNavigation({ type: 'reset-to-root', hasRecipes: hasRecipesAfterDelete });
+    }
+  };
+
   const screen = (() => {
-    if (uiState.type === 'staging') {
-      return (
-        <RecipeStagingScreen
-          key="staging"
-          draft={uiState.draft}
-          mode={uiState.mode}
-          startEditing={
-            uiState.mode === 'edit' || (uiState.mode === 'create' && uiState.draft.sourceLabel === 'Manual')
-          }
-          onAccept={handleAccept}
-          onDelete={handleDeleteDraft}
-        />
-      );
-    }
-
-    if (uiState.type === 'empty') {
-      return <RecipeEmptyState key="empty" onImport={openImport} />;
-    }
-
-    if (uiState.type === 'search') {
-      return (
-        <RecipeSearchScreen
-          key="search"
-          query={searchQuery}
-          onQueryChange={(value) => {
-            setUiState((current) => (current.type === 'search' ? { ...current, query: value } : current));
-          }}
-          onClose={() => setUiState(uiState.returnTo)}
-          onImportUrl={handleSearchImport}
-        />
-      );
-    }
-
-    if (uiState.type === 'recipe' && openRecipe) {
-      return (
-        <RecipeScreen
-          key={openRecipe.id}
-          recipe={openRecipe}
-          onClose={() => {
-            if (liveOpenRecipe) {
-              setActiveRecipe(liveOpenRecipe.id);
-            } else if (deckActiveRecipe) {
-              setActiveRecipe(deckActiveRecipe.id);
+    switch (currentRoute.type) {
+      case 'staging':
+        return (
+          <RecipeStagingScreen
+            key="staging"
+            draft={currentRoute.draft}
+            mode={currentRoute.mode}
+            startEditing={
+              currentRoute.mode === 'edit' ||
+              (currentRoute.mode === 'create' && currentRoute.draft.sourceLabel === 'Manual')
             }
-            setUiState(uiState.returnTo);
-          }}
-        />
-      );
-    }
+            onAccept={handleAccept}
+            onDelete={handleDeleteDraft}
+          />
+        );
 
-    if (deckActiveRecipe) {
-      return (
-        <RecipeDeckScreen
-          key="deck"
-          recipes={recipes}
-          deckRecipes={deckRecipes}
-          activeRecipe={deckActiveRecipe}
-          viewMode={viewMode}
-          onOpenRecipe={handleOpenRecipe}
-          onMoveRecipe={moveActiveRecipeBy}
-          onImport={openImport}
-          onEdit={(recipe) => handleEditRecipe(recipe)}
-          onDelete={(recipeId) => deleteRecipe(recipeId)}
-          onSetViewMode={setViewMode}
-          onRequestImage={handleRequestImage}
-          onClearImagePrompt={clearImagePrompt}
-          showImportFab={!importOpen}
-        />
-      );
-    }
+      case 'empty':
+        return <RecipeEmptyState key="empty" onImport={openImport} />;
 
-    return <RecipeEmptyState key="empty-fallback" onImport={openImport} />;
+      case 'search':
+        return (
+          <RecipeSearchScreen
+            key="search"
+            query={currentRoute.query}
+            onQueryChange={(value) => dispatchNavigation({ type: 'set-search-query', query: value })}
+            onClose={() => dispatchNavigation({ type: 'close-top' })}
+            onImportUrl={handleSearchImport}
+          />
+        );
+
+      case 'recipe':
+        return openRecipe ? (
+          <RecipeScreen
+            key={openRecipe.id}
+            recipe={openRecipe}
+            onClose={() => dispatchNavigation({ type: 'close-top' })}
+          />
+        ) : null;
+
+      case 'deck':
+      default:
+        return deckActiveRecipe ? (
+          <RecipeDeckScreen
+            key="deck"
+            recipes={recipes}
+            deckRecipes={deckRecipes}
+            activeRecipe={deckActiveRecipe}
+            viewMode={viewMode}
+            onOpenRecipe={handleOpenRecipe}
+            onMoveRecipe={moveActiveRecipeBy}
+            onImport={openImport}
+            onEdit={handleEditRecipe}
+            onDelete={handleDeleteRecipe}
+            onSetViewMode={setViewMode}
+            onRequestImage={handleRequestImage}
+            onClearImagePrompt={clearImagePrompt}
+            showImportFab={!navigationState.importSheetOpen}
+          />
+        ) : (
+          <RecipeEmptyState key="empty-fallback" onImport={openImport} />
+        );
+    }
   })();
 
   return (
@@ -405,17 +521,10 @@ const AppContent = (): JSX.Element => {
       </AnimatePresence>
 
       <RecipeImportSheet
-        open={importOpen}
-        onClose={() => setImportOpen(false)}
+        open={navigationState.importSheetOpen}
+        onClose={() => dispatchNavigation({ type: 'close-import' })}
         onContinue={handleImportContinue}
-        onOpenSearch={() => {
-          setImportOpen(false);
-          setUiState({
-            type: 'search',
-            query: '',
-            returnTo: recipes.length ? { type: 'deck' } : { type: 'empty' }
-          });
-        }}
+        onOpenSearch={() => dispatchNavigation({ type: 'open-search' })}
         onCreateManual={() => {
           const draft: RecipeStagingDraft = {
             title: '',
@@ -435,13 +544,11 @@ const AppContent = (): JSX.Element => {
             rawContent: ''
           };
 
-          setImportOpen(false);
-          setUiState({
-            type: 'staging',
+          dispatchNavigation({
+            type: 'open-staging',
             draft,
             mode: 'create',
-            editingRecipeId: null,
-            returnTo: recipes.length ? { type: 'deck' } : { type: 'empty' }
+            editingRecipeId: null
           });
         }}
       />
