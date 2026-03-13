@@ -378,176 +378,6 @@ const parseRecipeFromText = (
   return draft;
 };
 
-const toStringArray = (value: unknown): string[] => {
-  if (!value) {
-    return [];
-  }
-  if (Array.isArray(value)) {
-    return value.map((item) => String(item));
-  }
-  return [String(value)];
-};
-
-const formatDuration = (value: unknown): string => {
-  if (!value) {
-    return '';
-  }
-
-  const text = String(value).trim();
-  const match = text.match(/P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?/i);
-  if (!match) {
-    return text;
-  }
-
-  const days = Number.parseInt(match[1] ?? '', 10);
-  const hours = Number.parseInt(match[2] ?? '', 10);
-  const minutes = Number.parseInt(match[3] ?? '', 10);
-
-  const parts: string[] = [];
-  if (!Number.isNaN(days) && days > 0) {
-    parts.push(`${days} d`);
-  }
-  if (!Number.isNaN(hours) && hours > 0) {
-    parts.push(`${hours} hr`);
-  }
-  if (!Number.isNaN(minutes) && minutes > 0) {
-    parts.push(`${minutes} min`);
-  }
-
-  if (!parts.length) {
-    return text;
-  }
-
-  return parts.join(' ');
-};
-
-const collectInstructions = (value: unknown): string[] => {
-  if (!value) {
-    return [];
-  }
-
-  if (typeof value === 'string') {
-    return [value];
-  }
-
-  if (Array.isArray(value)) {
-    return value.flatMap((item) => collectInstructions(item));
-  }
-
-  if (typeof value === 'object') {
-    const node = value as Record<string, unknown>;
-    if (typeof node.text === 'string') {
-      return [node.text];
-    }
-    if (node.itemListElement) {
-      return collectInstructions(node.itemListElement);
-    }
-  }
-
-  return [];
-};
-
-const extractImageUrl = (value: unknown): string => {
-  if (!value) {
-    return '';
-  }
-
-  if (typeof value === 'string') {
-    return value.trim();
-  }
-
-  if (Array.isArray(value)) {
-    return extractImageUrl(value[0]);
-  }
-
-  if (typeof value === 'object') {
-    const node = value as Record<string, unknown>;
-    if (typeof node.url === 'string') {
-      return node.url.trim();
-    }
-    if (typeof node['@id'] === 'string') {
-      return node['@id'].trim();
-    }
-  }
-
-  return '';
-};
-
-const extractRecipeFromJsonLd = (doc: Document): Partial<ParsedRecipeDraft> | null => {
-  const scripts = Array.from(doc.querySelectorAll('script[type="application/ld+json"]'));
-  for (const script of scripts) {
-    const text = script.textContent?.trim();
-    if (!text) {
-      continue;
-    }
-
-    let data: unknown;
-    try {
-      data = JSON.parse(text);
-    } catch {
-      continue;
-    }
-
-    const nodes = Array.isArray(data) ? data : [data];
-    const flattened: unknown[] = [];
-
-    for (const node of nodes) {
-      if (node && typeof node === 'object' && '@graph' in node) {
-        const graph = (node as Record<string, unknown>)['@graph'];
-        if (Array.isArray(graph)) {
-          flattened.push(...graph);
-        } else if (graph) {
-          flattened.push(graph);
-        }
-      } else {
-        flattened.push(node);
-      }
-    }
-
-    const recipeNode = flattened.find((node) => {
-      if (!node || typeof node !== 'object') {
-        return false;
-      }
-      const type = (node as Record<string, unknown>)['@type'];
-      if (Array.isArray(type)) {
-        return type.includes('Recipe');
-      }
-      return type === 'Recipe';
-    });
-
-    if (!recipeNode || typeof recipeNode !== 'object') {
-      continue;
-    }
-
-    const recipe = recipeNode as Record<string, unknown>;
-    const ingredients = toStringArray(recipe.recipeIngredient);
-    const instructions = collectInstructions(recipe.recipeInstructions);
-    const keywords = toStringArray(recipe.keywords);
-    const categories = toStringArray(recipe.recipeCategory);
-    const cuisine = toStringArray(recipe.recipeCuisine);
-    const imageUrl = extractImageUrl(recipe.image);
-    const description = typeof recipe.description === 'string' ? recipe.description : '';
-    const nutrients = normalizeNutrients(recipe.nutrition);
-
-    return {
-      title: typeof recipe.name === 'string' ? recipe.name : '',
-      description,
-      imageUrl,
-      ingredients,
-      steps: instructions,
-      tags: normalizeTags([...keywords, ...categories, ...cuisine]),
-      categories,
-      cuisines: cuisine,
-      nutrients,
-      prepTime: formatDuration(recipe.prepTime),
-      cookTime: formatDuration(recipe.cookTime),
-      notes: ''
-    };
-  }
-
-  return null;
-};
-
 interface BackendRecipeResponse {
   title?: string;
   description?: string;
@@ -563,6 +393,7 @@ interface BackendRecipeResponse {
   notes?: string;
   rawContent?: string;
   sourceLabel?: string;
+  importWarning?: string;
 }
 
 interface BackendFetchResult {
@@ -625,8 +456,9 @@ const fetchRecipeFromBackend = async (url: string): Promise<BackendFetchResult> 
     draft.cookTime = data.cookTime ?? '';
     draft.notes = data.notes ?? '';
     draft.rawContent = data.rawContent ?? '';
+    draft.importWarning = data.importWarning?.trim() || undefined;
     if (draft.ingredients.length === 0 && draft.steps.length === 0) {
-      draft.importWarning = IMPORT_WARNING;
+      draft.importWarning = draft.importWarning ?? IMPORT_WARNING;
     }
     return { draft, error: null };
   } catch {
@@ -638,59 +470,22 @@ const parseRecipeFromUrl = async (url: string): Promise<ParsedRecipeDraft> => {
   const sourceLabel = url;
   const fallbackTitle = deriveTitleFromUrl(url);
 
-  try {
-    const backendResult = await fetchRecipeFromBackend(url);
-    if (backendResult.draft) {
-      if (
-        backendResult.draft.ingredients.length === 0 &&
-        backendResult.draft.steps.length === 0
-      ) {
-        backendResult.draft.importWarning = IMPORT_WARNING;
-      }
-      return backendResult.draft;
+  const backendResult = await fetchRecipeFromBackend(url);
+  if (backendResult.draft) {
+    if (
+      backendResult.draft.ingredients.length === 0 &&
+      backendResult.draft.steps.length === 0
+    ) {
+      backendResult.draft.importWarning = backendResult.draft.importWarning ?? IMPORT_WARNING;
     }
-
-    const response = await fetch(url, { mode: 'cors' });
-    if (!response.ok) {
-      throw new Error(`Fetch failed: ${response.status}`);
-    }
-
-    const html = await response.text();
-    const doc = new DOMParser().parseFromString(html, 'text/html');
-    const rawText = previewText(doc.body?.textContent ?? '');
-
-    const jsonLd = extractRecipeFromJsonLd(doc);
-    if (jsonLd) {
-      const draft = baseDraft(sourceLabel, 'url');
-      draft.title = jsonLd.title?.trim() || fallbackTitle;
-      draft.description = jsonLd.description?.trim() || '';
-      draft.imageUrl = jsonLd.imageUrl?.trim() || '';
-      draft.ingredients = normalizeList(jsonLd.ingredients ?? []);
-      draft.steps = normalizeList(jsonLd.steps ?? []);
-      draft.categories = normalizeTags(jsonLd.categories ?? []);
-      draft.cuisines = normalizeTags(jsonLd.cuisines ?? []);
-      draft.tags = normalizeTags([...(jsonLd.tags ?? []), ...draft.categories, ...draft.cuisines]);
-      draft.nutrients = normalizeNutrients(jsonLd.nutrients ?? []);
-      draft.prepTime = jsonLd.prepTime ?? '';
-      draft.cookTime = jsonLd.cookTime ?? '';
-      draft.notes = jsonLd.notes ?? '';
-      draft.rawContent = rawText || previewText(html);
-      return draft;
-    }
-
-    const parsed = parseRecipeFromText(doc.body?.textContent ?? html, fallbackTitle, sourceLabel, 'url');
-    parsed.rawContent = rawText || parsed.rawContent;
-    if (parsed.ingredients.length === 0 && parsed.steps.length === 0) {
-      parsed.importWarning = IMPORT_WARNING;
-    }
-    return parsed;
-  } catch {
-    const draft = baseDraft(sourceLabel, 'url');
-    draft.title = fallbackTitle;
-    draft.rawContent = url;
-    draft.importWarning = IMPORT_WARNING;
-    return draft;
+    return backendResult.draft;
   }
+
+  const draft = baseDraft(sourceLabel, 'url');
+  draft.title = fallbackTitle;
+  draft.rawContent = url;
+  draft.importWarning = backendResult.error ?? IMPORT_WARNING;
+  return draft;
 };
 
 export const parseRecipeImport = async (input: RecipeImportInput): Promise<ParsedRecipeDraft> => {
