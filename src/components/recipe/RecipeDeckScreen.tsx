@@ -11,7 +11,7 @@ interface RecipeDeckScreenProps {
   deckRecipes?: Recipe[];
   activeRecipe: Recipe;
   viewMode: RecipeViewMode;
-  onOpenRecipe: (recipeId: string) => void;
+  onOpenRecipe: (recipe: Recipe) => void;
   onMoveRecipe: (offset: 1 | -1) => void;
   onImport: () => void;
   onEdit: (recipe: Recipe) => void;
@@ -275,7 +275,7 @@ export const RecipeDeckScreen = ({
       return;
     }
 
-    onOpenRecipe(activeRecipe.id);
+    onOpenRecipe(activeRecipe);
   };
 
   const beginEdit = (recipe: Recipe) => {
@@ -650,7 +650,7 @@ const ScrollRecipeCard = ({
   canStartLongPress: () => boolean;
   onStartJiggle: () => void;
   onStopJiggle: () => void;
-  onOpen: (recipeId: string) => void;
+  onOpen: (recipe: Recipe) => void;
   onEdit: (recipe: Recipe) => void;
   onBeforeEdit: () => void;
   onDelete: (recipeId: string) => void;
@@ -702,7 +702,7 @@ const ScrollRecipeCard = ({
       return;
     }
 
-    onOpen(recipe.id);
+    onOpen(recipe);
   };
 
   const beginEdit = () => {
@@ -768,7 +768,7 @@ const RecipeRow = ({
   isJiggling: boolean;
   onStartJiggle: () => void;
   onStopJiggle: () => void;
-  onOpen: (recipeId: string) => void;
+  onOpen: (recipe: Recipe) => void;
   onEdit: (recipe: Recipe) => void;
   onBeforeEdit: () => void;
   onDelete: (recipeId: string) => void;
@@ -816,7 +816,7 @@ const RecipeRow = ({
       return;
     }
 
-    onOpen(recipe.id);
+    onOpen(recipe);
   };
 
   const beginEdit = () => {
@@ -841,12 +841,10 @@ const RecipeRow = ({
         onTouchCancel={swipe.onTouchCancel}
         onPointerDown={longPress.onPointerDown}
         onPointerMove={longPress.onPointerMove}
-        onPointerUp={() => {
-          longPress.onPointerUp();
-          handleRowClick();
-        }}
+        onPointerUp={longPress.onPointerUp}
         onPointerCancel={longPress.onPointerCancel}
         onPointerLeave={longPress.onPointerLeave}
+        onClick={handleRowClick}
         onKeyDown={(event) => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();

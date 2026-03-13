@@ -38,7 +38,7 @@ type UiState =
       editingRecipeId: string | null;
       returnTo: { type: 'empty' } | { type: 'deck' } | { type: 'search'; query: string; returnTo: { type: 'empty' } | { type: 'deck' } };
     }
-  | { type: 'recipe'; recipeId: string };
+  | { type: 'recipe'; recipeId: string; fallbackRecipe: Recipe; returnTo: { type: 'empty' } | { type: 'deck' } };
 
 const AppContent = (): JSX.Element => {
   const hydrateRecipes = useRecipeStore((state) => state.hydrate);
@@ -88,7 +88,7 @@ const AppContent = (): JSX.Element => {
     }
 
     if (!recipes.length) {
-      if (uiState.type !== 'staging' && uiState.type !== 'search') {
+      if (uiState.type !== 'staging' && uiState.type !== 'search' && uiState.type !== 'recipe') {
         setUiState({ type: 'empty' });
       }
       return;
@@ -98,12 +98,6 @@ const AppContent = (): JSX.Element => {
       setUiState({ type: 'deck' });
     }
   }, [homeHydrated, recipeHydrated, recipes.length, uiState.type]);
-
-  useEffect(() => {
-    if (uiState.type === 'recipe' && !recipes.some((recipe) => recipe.id === uiState.recipeId)) {
-      setUiState(recipes.length ? { type: 'deck' } : { type: 'empty' });
-    }
-  }, [recipes, uiState]);
 
   if (!recipeHydrated || !homeHydrated) {
     return <main className="app-shell loading-shell">Loading...</main>;
@@ -274,14 +268,20 @@ const AppContent = (): JSX.Element => {
         .map((id) => recipes.find((recipe) => recipe.id === id))
         .filter((recipe): recipe is Recipe => Boolean(recipe))
     : recipes;
-  const openRecipe =
+  const liveOpenRecipe =
     uiState.type === 'recipe'
       ? recipes.find((recipe) => recipe.id === uiState.recipeId) ?? null
       : null;
-  const deckActiveRecipe = activeRecipe ?? deckRecipes[0] ?? null;
+  const openRecipe = uiState.type === 'recipe' ? liveOpenRecipe ?? uiState.fallbackRecipe : null;
+  const deckActiveRecipe = activeRecipe ?? deckRecipes[0] ?? recipes[0] ?? null;
 
-  const handleOpenRecipe = (recipeId: string) => {
-    setUiState({ type: 'recipe', recipeId });
+  const handleOpenRecipe = (recipe: Recipe) => {
+    setUiState({
+      type: 'recipe',
+      recipeId: recipe.id,
+      fallbackRecipe: recipe,
+      returnTo: recipes.length ? { type: 'deck' } : { type: 'empty' }
+    });
   };
 
   const searchQuery = uiState.type === 'search' ? uiState.query : '';
@@ -363,8 +363,12 @@ const AppContent = (): JSX.Element => {
           key={openRecipe.id}
           recipe={openRecipe}
           onClose={() => {
-            setActiveRecipe(openRecipe.id);
-            setUiState({ type: 'deck' });
+            if (liveOpenRecipe) {
+              setActiveRecipe(liveOpenRecipe.id);
+            } else if (deckActiveRecipe) {
+              setActiveRecipe(deckActiveRecipe.id);
+            }
+            setUiState(uiState.returnTo);
           }}
         />
       );
