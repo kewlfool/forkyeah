@@ -20,7 +20,7 @@ const SEARCH_ENDPOINT = (() => {
     return `${normalized}/api/search`;
   }
 
-  return '/api/search';
+  return 'https://forkyeah-api-972537921250.us-central1.run.app/api/search';
 })();
 
 export const searchRecipes = async (

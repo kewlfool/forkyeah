@@ -14,3 +14,7 @@ Minimalist recipe manager PWA designed to stay open while you cook.
 - Build Pages artifacts with `npm run build:pages`.
 - Commit and push the updated `docs/` output to the branch configured in GitHub Pages.
 - If an old JS bundle keeps loading on mobile, clear site data/service worker in Chrome and reload.
+
+## Resolving `docs/index.html` merge conflicts
+- If you see a conflict on the `<script ... /assets/index-*.js>` line, keep the hash that exists in `docs/assets/`.
+- Then run `npm run build:pages` and commit the regenerated `docs/index.html` and `docs/sw.js`.
