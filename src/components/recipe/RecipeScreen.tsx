@@ -194,7 +194,7 @@ export const RecipeScreen = ({ recipe, onClose }: RecipeScreenProps): JSX.Elemen
 
   const displayTags = useMemo(() => {
     const deduped = new Set<string>();
-    for (const item of [...recipe.categories, ...recipe.cuisines, ...recipe.tags]) {
+    for (const item of [...(recipe.categories ?? []), ...(recipe.cuisines ?? []), ...(recipe.tags ?? [])]) {
       const trimmed = item.trim();
       if (trimmed) {
         deduped.add(trimmed);
@@ -356,7 +356,7 @@ export const RecipeScreen = ({ recipe, onClose }: RecipeScreenProps): JSX.Elemen
             <Share2 size={16} />
           </button>
         </div>
-        {recipe.description.trim() ? <p className="recipe-description">{recipe.description}</p> : null}
+        {(recipe.description ?? '').trim() ? <p className="recipe-description">{recipe.description}</p> : null}
         <div className="recipe-meta-row">
           <button
             type="button"
@@ -406,9 +406,9 @@ export const RecipeScreen = ({ recipe, onClose }: RecipeScreenProps): JSX.Elemen
 
         <section className="recipe-section">
           <h2>Ingredients</h2>
-          {recipe.ingredients.length ? (
+          {(recipe.ingredients ?? []).length ? (
             <ul className="recipe-ingredients-list">
-              {recipe.ingredients.map((item, index) => (
+              {(recipe.ingredients ?? []).map((item, index) => (
                 <IngredientItem
                   key={`${item}-${index}`}
                   item={item}
@@ -428,9 +428,9 @@ export const RecipeScreen = ({ recipe, onClose }: RecipeScreenProps): JSX.Elemen
 
         <section className="recipe-section">
           <h2>Steps</h2>
-          {recipe.steps.length ? (
+          {(recipe.steps ?? []).length ? (
             <ol className="recipe-steps-list">
-              {recipe.steps.map((item, index) => (
+              {(recipe.steps ?? []).map((item, index) => (
                 <StepItem
                   key={`${item}-${index}`}
                   item={item}
@@ -446,7 +446,7 @@ export const RecipeScreen = ({ recipe, onClose }: RecipeScreenProps): JSX.Elemen
 
         <section className="recipe-section">
           <h2>Notes</h2>
-          {recipe.notes.trim() ? <p>{recipe.notes}</p> : <p className="muted">No notes yet.</p>}
+          {(recipe.notes ?? '').trim() ? <p>{recipe.notes}</p> : <p className="muted">No notes yet.</p>}
         </section>
       </div>
 
@@ -516,9 +516,9 @@ export const RecipeScreen = ({ recipe, onClose }: RecipeScreenProps): JSX.Elemen
             {peekPanel === 'ingredients' ? (
               <>
                 <h3>Ingredients</h3>
-                {recipe.ingredients.length ? (
+                {(recipe.ingredients ?? []).length ? (
                   <ul className="recipe-peek-list">
-                    {recipe.ingredients.map((item, index) => (
+                    {(recipe.ingredients ?? []).map((item, index) => (
                       <li
                         key={`${item}-${index}`}
                         className={ingredientDone[index] ? 'is-done' : undefined}
@@ -536,16 +536,16 @@ export const RecipeScreen = ({ recipe, onClose }: RecipeScreenProps): JSX.Elemen
             {peekPanel === 'notes' ? (
               <>
                 <h3>Notes</h3>
-                {recipe.notes.trim() ? <p>{recipe.notes}</p> : <p className="muted">No notes yet.</p>}
+                {(recipe.notes ?? '').trim() ? <p>{recipe.notes}</p> : <p className="muted">No notes yet.</p>}
               </>
             ) : null}
 
             {peekPanel === 'nutrients' ? (
               <>
                 <h3>Nutrients</h3>
-                {recipe.nutrients.length ? (
+                {(recipe.nutrients ?? []).length ? (
                   <ul className="recipe-peek-list">
-                    {recipe.nutrients.map((item, index) => (
+                    {(recipe.nutrients ?? []).map((item, index) => (
                       <li key={`${item}-${index}`}>{item}</li>
                     ))}
                   </ul>
