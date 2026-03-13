@@ -23,14 +23,18 @@ const SEARCH_ENDPOINT = (() => {
   return '/api/search';
 })();
 
-export const searchRecipes = async (query: string, limit = 10): Promise<RecipeSearchResult[]> => {
+export const searchRecipes = async (
+  query: string,
+  limit = 10,
+  signal?: AbortSignal
+): Promise<RecipeSearchResult[]> => {
   const trimmed = query.trim();
   if (trimmed.length < 2) {
     return [];
   }
 
   const url = `${SEARCH_ENDPOINT}?q=${encodeURIComponent(trimmed)}&limit=${limit}`;
-  const response = await fetch(url);
+  const response = await fetch(url, { signal });
   if (!response.ok) {
     throw new Error(`Search failed: ${response.status}`);
   }
