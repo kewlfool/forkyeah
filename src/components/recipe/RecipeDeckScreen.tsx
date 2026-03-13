@@ -665,6 +665,8 @@ const ScrollRecipeCard = ({
 }): JSX.Element => {
   const suppressClickRef = useRef(false);
   const longPressAtRef = useRef(0);
+  const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
+  const pointerMovedRef = useRef(false);
   const longPress = useLongPress({
     onLongPress: () => {
       if (!canStartLongPress()) {
@@ -722,16 +724,43 @@ const ScrollRecipeCard = ({
       data-recipe-card-id={recipe.id}
       className={`recipe-card recipe-scroll-card ${isJiggling ? 'recipe-card-jiggle' : ''}`}
       style={{ zIndex }}
-      onClick={handleTap}
       onTouchStart={swipe.onTouchStart}
       onTouchMove={swipe.onTouchMove}
       onTouchEnd={swipe.onTouchEnd}
       onTouchCancel={swipe.onTouchCancel}
-      onPointerDown={longPress.onPointerDown}
-      onPointerMove={longPress.onPointerMove}
-      onPointerUp={longPress.onPointerUp}
-      onPointerCancel={longPress.onPointerCancel}
-      onPointerLeave={longPress.onPointerLeave}
+      onPointerDown={(event) => {
+        pointerStartRef.current = { x: event.clientX, y: event.clientY };
+        pointerMovedRef.current = false;
+        longPress.onPointerDown(event);
+      }}
+      onPointerMove={(event) => {
+        const start = pointerStartRef.current;
+        if (start && Math.hypot(event.clientX - start.x, event.clientY - start.y) > 8) {
+          pointerMovedRef.current = true;
+        }
+        longPress.onPointerMove(event);
+      }}
+      onPointerUp={() => {
+        longPress.onPointerUp();
+        if (pointerMovedRef.current) {
+          pointerStartRef.current = null;
+          pointerMovedRef.current = false;
+          return;
+        }
+        pointerStartRef.current = null;
+        pointerMovedRef.current = false;
+        handleTap();
+      }}
+      onPointerCancel={() => {
+        pointerStartRef.current = null;
+        pointerMovedRef.current = false;
+        longPress.onPointerCancel();
+      }}
+      onPointerLeave={() => {
+        pointerStartRef.current = null;
+        pointerMovedRef.current = false;
+        longPress.onPointerLeave();
+      }}
       role="button"
       tabIndex={0}
       aria-label={`Open ${recipe.title}`}
@@ -783,6 +812,8 @@ const RecipeRow = ({
   const tags = collectTags(recipe);
   const suppressClickRef = useRef(false);
   const longPressAtRef = useRef(0);
+  const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
+  const pointerMovedRef = useRef(false);
   const longPress = useLongPress({
     onLongPress: () => {
       suppressClickRef.current = true;
@@ -844,12 +875,39 @@ const RecipeRow = ({
         onTouchMove={swipe.onTouchMove}
         onTouchEnd={swipe.onTouchEnd}
         onTouchCancel={swipe.onTouchCancel}
-        onPointerDown={longPress.onPointerDown}
-        onPointerMove={longPress.onPointerMove}
-        onPointerUp={longPress.onPointerUp}
-        onPointerCancel={longPress.onPointerCancel}
-        onPointerLeave={longPress.onPointerLeave}
-        onClick={handleRowClick}
+        onPointerDown={(event) => {
+          pointerStartRef.current = { x: event.clientX, y: event.clientY };
+          pointerMovedRef.current = false;
+          longPress.onPointerDown(event);
+        }}
+        onPointerMove={(event) => {
+          const start = pointerStartRef.current;
+          if (start && Math.hypot(event.clientX - start.x, event.clientY - start.y) > 8) {
+            pointerMovedRef.current = true;
+          }
+          longPress.onPointerMove(event);
+        }}
+        onPointerUp={() => {
+          longPress.onPointerUp();
+          if (pointerMovedRef.current) {
+            pointerStartRef.current = null;
+            pointerMovedRef.current = false;
+            return;
+          }
+          pointerStartRef.current = null;
+          pointerMovedRef.current = false;
+          handleRowClick();
+        }}
+        onPointerCancel={() => {
+          pointerStartRef.current = null;
+          pointerMovedRef.current = false;
+          longPress.onPointerCancel();
+        }}
+        onPointerLeave={() => {
+          pointerStartRef.current = null;
+          pointerMovedRef.current = false;
+          longPress.onPointerLeave();
+        }}
         onKeyDown={(event) => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
