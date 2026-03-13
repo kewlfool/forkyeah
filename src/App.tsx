@@ -236,14 +236,6 @@ const AppContent = (): JSX.Element => {
     dispatchNavigation({ type: 'close-top' });
   }, [currentRoute, openRecipe]);
 
-  if (!recipeHydrated || !homeHydrated) {
-    return <main className="app-shell loading-shell">Loading...</main>;
-  }
-
-  if (isParsing) {
-    return <main className="app-shell loading-shell">Parsing recipe...</main>;
-  }
-
   const openImport = () => {
     dispatchNavigation({ type: 'open-import' });
   };
