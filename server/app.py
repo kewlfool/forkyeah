@@ -1,14 +1,16 @@
 import base64
+import gzip
 import json
 import os
 import re
+import zlib
 from html import unescape
 from html.parser import HTMLParser
 from typing import Any, Dict, List, Optional
 from urllib.parse import unquote, urlencode, urlparse
 from urllib.request import Request, urlopen
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request as FastAPIRequest
 from fastapi.middleware.cors import CORSMiddleware
 from recipe_scrapers import scrape_html
 
@@ -307,6 +309,33 @@ def fetch_recipe_html(url: str) -> str:
             raise ValueError(f"Unexpected content type: {content_type}")
         payload = response.read()
         return payload.decode(charset, errors="replace")
+
+
+def read_text_response(response) -> str:
+    payload = response.read()
+    encoding = (response.headers.get("Content-Encoding", "") or "").lower()
+    if encoding == "gzip":
+        payload = gzip.decompress(payload)
+    elif encoding == "deflate":
+        payload = zlib.decompress(payload)
+
+    charset = response.headers.get_content_charset() or "utf-8"
+    return payload.decode(charset, errors="replace")
+
+
+def extract_client_ip(request: FastAPIRequest) -> str:
+    forwarded_for = request.headers.get("x-forwarded-for", "")
+    if forwarded_for:
+        first_hop = forwarded_for.split(",", 1)[0].strip()
+        if first_hop:
+            return first_hop
+
+    real_ip = request.headers.get("x-real-ip", "").strip()
+    if real_ip:
+        return real_ip
+
+    client = request.client.host if request.client else ""
+    return client.strip()
 
 
 def collect_instructions(value: Any) -> List[str]:
@@ -739,7 +768,11 @@ def scrape_recipe(url: str = Query(..., min_length=5)):
 
 
 @app.get("/api/search")
-def search_recipes(q: str = Query(..., min_length=2), limit: int = Query(10, ge=1, le=20)):
+def search_recipes(
+    request: FastAPIRequest,
+    q: str = Query(..., min_length=2),
+    limit: int = Query(10, ge=1, le=20),
+):
     if not SEARXNG_URL:
         raise HTTPException(status_code=501, detail="Search not configured")
 
@@ -748,11 +781,25 @@ def search_recipes(q: str = Query(..., min_length=2), limit: int = Query(10, ge=
         "format": "json",
     }
     url = f"{SEARXNG_URL}/search?{urlencode(params)}"
+    client_ip = extract_client_ip(request)
+    accept_language = first_non_empty(request.headers.get("accept-language"), "en-US,en;q=0.9")
+    forwarded_proto = first_non_empty(request.headers.get("x-forwarded-proto"), "https")
 
     try:
-        request = Request(url, headers={"User-Agent": SEARCH_USER_AGENT, "Accept": "application/json"})
-        with urlopen(request, timeout=12) as response:
-            payload = response.read().decode("utf-8")
+        upstream_request = Request(
+            url,
+            headers={
+                "User-Agent": SEARCH_USER_AGENT,
+                "Accept": "application/json,text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": accept_language,
+                "Accept-Encoding": "gzip, deflate",
+                "X-Real-IP": client_ip,
+                "X-Forwarded-For": client_ip,
+                "X-Forwarded-Proto": forwarded_proto,
+            },
+        )
+        with urlopen(upstream_request, timeout=12) as response:
+            payload = read_text_response(response)
         data = json.loads(payload)
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Search failed: {exc}") from exc
