@@ -1,11 +1,11 @@
 export type StackGestureAxis = 'x' | 'y' | null;
 export type StackSwipeDirection = -1 | 0 | 1;
 
-export const STACK_AXIS_LOCK_DISTANCE_PX = 12;
-export const STACK_HORIZONTAL_DOMINANCE_RATIO = 1.05;
-export const STACK_VERTICAL_DOMINANCE_RATIO = 1.2;
-export const STACK_SWIPE_COMMIT_RATIO = 0.18;
-export const STACK_SWIPE_VELOCITY_PX_PER_MS = 0.45;
+export const STACK_AXIS_LOCK_DISTANCE_PX = 8;
+export const STACK_HORIZONTAL_DOMINANCE_RATIO = 1;
+export const STACK_VERTICAL_DOMINANCE_RATIO = 1.45;
+export const STACK_SWIPE_COMMIT_RATIO = 0.12;
+export const STACK_SWIPE_VELOCITY_PX_PER_MS = 0.3;
 export const STACK_CARD_TRANSITION_MS = 220;
 
 export const resolveStackGestureAxis = (deltaX: number, deltaY: number): StackGestureAxis => {

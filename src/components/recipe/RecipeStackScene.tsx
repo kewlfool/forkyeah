@@ -1,15 +1,17 @@
 import { motion } from 'framer-motion';
 import {
+  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
+  type UIEvent,
   type PointerEvent as ReactPointerEvent
 } from 'react';
 import type { Recipe } from '../../types/models';
 import { formatCookedDate } from '../../utils/recipes';
-import { RecipeArticleLayout } from './RecipeArticleLayout';
+import { RecipeStackArticleLayout } from './RecipeStackArticleLayout';
 import {
   resolveStackGestureAxis,
   resolveStackSwipeDirection,
@@ -34,7 +36,26 @@ interface ActivePointerGesture {
 }
 
 const STACK_PREVIEW_LIMIT = 2;
-const STACK_TAP_MOVE_TOLERANCE_PX = 8;
+
+const buildUniqueRecipeList = (recipes: Array<Recipe | null | undefined>, limit: number): Recipe[] => {
+  const seen = new Set<string>();
+  const ordered: Recipe[] = [];
+
+  for (const recipe of recipes) {
+    if (!recipe || seen.has(recipe.id)) {
+      continue;
+    }
+
+    seen.add(recipe.id);
+    ordered.push(recipe);
+
+    if (ordered.length >= limit) {
+      break;
+    }
+  }
+
+  return ordered;
+};
 
 const StackPreviewCard = ({
   recipe,
@@ -105,12 +126,10 @@ export const RecipeStackScene = ({
   onOpenRecipe
 }: RecipeStackSceneProps): JSX.Element => {
   const activeCardRef = useRef<HTMLDivElement | null>(null);
-  const contentRef = useRef<HTMLDivElement | null>(null);
+  const bodyRef = useRef<HTMLDivElement | null>(null);
   const gestureRef = useRef<ActivePointerGesture | null>(null);
   const scrollPositionsRef = useRef<Record<string, number>>({});
   const settleTimeoutRef = useRef<number | null>(null);
-  const tapOpenEligibleRef = useRef(false);
-  const gestureStartScrollTopRef = useRef(0);
   const [gesturePhase, setGesturePhase] = useState<StackGesturePhase>('idle');
   const [cardOffsetX, setCardOffsetX] = useState(0);
   const [transitionMs, setTransitionMs] = useState(0);
@@ -127,13 +146,41 @@ export const RecipeStackScene = ({
     return selectedIndex >= 0 ? selectedIndex : 0;
   }, [recipes, selectedRecipeId]);
 
+  const getWrappedRecipe = useCallback(
+    (offset: number): Recipe | null => {
+      if (activeIndex < 0 || recipes.length <= 1) {
+        return null;
+      }
+
+      const normalizedIndex = (activeIndex + offset + recipes.length) % recipes.length;
+      return recipes[normalizedIndex] ?? null;
+    },
+    [activeIndex, recipes]
+  );
+
   const activeRecipe = activeIndex >= 0 ? recipes[activeIndex] : null;
-  const previousRecipe = activeIndex > 0 ? recipes[activeIndex - 1] : null;
-  const upcomingRecipes = activeIndex >= 0 ? recipes.slice(activeIndex + 1, activeIndex + 1 + STACK_PREVIEW_LIMIT) : [];
+  const previousRecipe = getWrappedRecipe(-1);
+  const upcomingRecipes = useMemo(() => {
+    if (activeIndex < 0 || recipes.length <= 1) {
+      return [];
+    }
+
+    const nextRecipes: Recipe[] = [];
+    const previewCount = Math.min(STACK_PREVIEW_LIMIT, recipes.length - 1);
+
+    for (let offset = 1; offset <= previewCount; offset += 1) {
+      const recipe = getWrappedRecipe(offset);
+      if (recipe) {
+        nextRecipes.push(recipe);
+      }
+    }
+
+    return nextRecipes;
+  }, [activeIndex, getWrappedRecipe, recipes.length]);
 
   const visiblePreviewRecipes = useMemo(() => {
     if (cardOffsetX > 12 && previousRecipe) {
-      return [previousRecipe, ...upcomingRecipes.slice(0, STACK_PREVIEW_LIMIT - 1)];
+      return buildUniqueRecipeList([previousRecipe, ...upcomingRecipes], STACK_PREVIEW_LIMIT);
     }
 
     return upcomingRecipes;
@@ -148,12 +195,12 @@ export const RecipeStackScene = ({
   }, []);
 
   useLayoutEffect(() => {
-    if (!activeRecipe || !contentRef.current) {
+    if (!activeRecipe || !bodyRef.current) {
       return;
     }
 
-    const content = contentRef.current;
-    content.scrollTop = scrollPositionsRef.current[activeRecipe.id] ?? 0;
+    const body = bodyRef.current;
+    body.scrollTop = scrollPositionsRef.current[activeRecipe.id] ?? 0;
   }, [activeRecipe?.id]);
 
   useEffect(() => {
@@ -200,6 +247,10 @@ export const RecipeStackScene = ({
       return;
     }
 
+    if (event.target instanceof Element && event.target.closest('.recipe-stack-footer')) {
+      return;
+    }
+
     gestureRef.current = {
       pointerId: event.pointerId,
       startX: event.clientX,
@@ -207,8 +258,6 @@ export const RecipeStackScene = ({
       startedAt: performance.now(),
       width: activeCardRef.current?.clientWidth ?? window.innerWidth
     };
-    tapOpenEligibleRef.current = true;
-    gestureStartScrollTopRef.current = contentRef.current?.scrollTop ?? 0;
     setTransitionMs(0);
     setGesturePhase('deciding');
   };
@@ -221,21 +270,13 @@ export const RecipeStackScene = ({
 
     const deltaX = event.clientX - gesture.startX;
     const deltaY = event.clientY - gesture.startY;
-    const movedTooFar =
-      Math.abs(deltaX) > STACK_TAP_MOVE_TOLERANCE_PX || Math.abs(deltaY) > STACK_TAP_MOVE_TOLERANCE_PX;
-
-    if (movedTooFar) {
-      tapOpenEligibleRef.current = false;
-    }
 
     if (gesturePhase === 'deciding') {
       const axis = resolveStackGestureAxis(deltaX, deltaY);
       if (axis === 'x') {
         setGesturePhase('swiping');
-        tapOpenEligibleRef.current = false;
       } else if (axis === 'y') {
         setGesturePhase('scrolling');
-        tapOpenEligibleRef.current = false;
       } else {
         return;
       }
@@ -261,10 +302,13 @@ export const RecipeStackScene = ({
     if (gesturePhase === 'swiping') {
       const direction = resolveStackSwipeDirection(deltaX, elapsedMs, gesture.width);
       const targetRecipeId =
-        direction < 0 ? recipes[activeIndex + 1]?.id ?? null : direction > 0 ? recipes[activeIndex - 1]?.id ?? null : null;
+        direction < 0
+          ? getWrappedRecipe(1)?.id ?? null
+          : direction > 0
+            ? getWrappedRecipe(-1)?.id ?? null
+            : null;
 
       if (direction !== 0 && targetRecipeId) {
-        tapOpenEligibleRef.current = false;
         settleToRecipe(targetRecipeId, direction, gesture.width);
         return;
       }
@@ -282,25 +326,30 @@ export const RecipeStackScene = ({
       return;
     }
 
-    tapOpenEligibleRef.current = false;
     resetGesture(false);
   };
 
-  const openActiveRecipeNow = () => {
+  const handleOpenActiveRecipe = () => {
     if (!activeRecipe || gesturePhase === 'settling') {
       return;
     }
 
-    tapOpenEligibleRef.current = false;
     onOpenRecipe(activeRecipe);
   };
 
-  const handleTapOpenActiveRecipe = () => {
-    if (!tapOpenEligibleRef.current) {
+  const handleBodyScroll = (event: UIEvent<HTMLDivElement>) => {
+    if (!activeRecipe) {
       return;
     }
 
-    openActiveRecipeNow();
+    scrollPositionsRef.current[activeRecipe.id] = event.currentTarget.scrollTop;
+  };
+
+  const swipeZoneHandlers = {
+    onPointerDown: handlePointerDown,
+    onPointerMove: handlePointerMove,
+    onPointerUp: handlePointerEnd,
+    onPointerCancel: handlePointerCancel
   };
 
   if (!activeRecipe) {
@@ -331,67 +380,18 @@ export const RecipeStackScene = ({
             transform: `translateX(${cardOffsetX}px) rotate(${rotation}deg)`,
             transitionDuration: `${transitionMs}ms`
           }}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerEnd}
-          onPointerCancel={handlePointerCancel}
         >
-          <RecipeArticleLayout
+          <RecipeStackArticleLayout
             recipe={activeRecipe}
-            contentRef={contentRef}
-            contentClassName="recipe-stack-content"
-            headerProps={{
-              role: 'button',
-              tabIndex: 0,
-              className: 'recipe-header recipe-stack-open-zone',
-              onClick: handleTapOpenActiveRecipe,
-              onKeyDown: (event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                  event.preventDefault();
-                  openActiveRecipeNow();
-                }
-              }
-            }}
-            heroProps={{
-              role: 'button',
-              tabIndex: 0,
-              className: 'recipe-hero recipe-stack-open-zone',
-              onClick: handleTapOpenActiveRecipe,
-              onKeyDown: (event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                  event.preventDefault();
-                  openActiveRecipeNow();
-                }
-              }
-            }}
-            contentProps={{
-              onScroll: (event) => {
-                scrollPositionsRef.current[activeRecipe.id] = event.currentTarget.scrollTop;
-                if (
-                  gestureRef.current &&
-                  Math.abs(event.currentTarget.scrollTop - gestureStartScrollTopRef.current) > 1
-                ) {
-                  tapOpenEligibleRef.current = false;
-                }
-              }
-            }}
-            lastCookedControl={
-              <span className="recipe-title-meta">Last cooked: {formatCookedDate(activeRecipe.lastCooked)}</span>
-            }
+            bodyRef={bodyRef}
+            onBodyScroll={handleBodyScroll}
+            headerSwipeZoneProps={swipeZoneHandlers}
             ingredientsContent={renderReadOnlyIngredients(activeRecipe.ingredients)}
             stepsContent={renderReadOnlySteps(activeRecipe.steps)}
-            footer={
-              <div className="recipe-stack-footer">
-                <button
-                  type="button"
-                  className="solid-button recipe-stack-open-button"
-                  onClick={openActiveRecipeNow}
-                >
-                  Let&apos;s cook
-                </button>
-              </div>
-            }
+            onOpenRecipe={handleOpenActiveRecipe}
           />
+          <div className="recipe-stack-gutter recipe-stack-gutter-left" aria-hidden="true" {...swipeZoneHandlers} />
+          <div className="recipe-stack-gutter recipe-stack-gutter-right" aria-hidden="true" {...swipeZoneHandlers} />
         </motion.div>
       </div>
     </div>

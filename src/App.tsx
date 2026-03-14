@@ -1,5 +1,5 @@
 import { AnimatePresence } from 'framer-motion';
-import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import {
   appShellReducer,
   buildInitialAppShellState,
@@ -19,7 +19,8 @@ import {
 import { useWakeLock } from './hooks/useWakeLock';
 import { useHomeStore } from './store/useHomeStore';
 import { useRecipeStore, type RecipeInput } from './store/useRecipeStore';
-import type { DeckRendererMode, Recipe } from './types/models';
+import type { Recipe } from './types/models';
+import { orderRecipesByIds, reconcileDeckOrder } from './utils/deckOrdering';
 import { compressImageFile } from './utils/imageCompression';
 import {
   parseRecipeImport,
@@ -89,6 +90,14 @@ const buildManualDraft = (): RecipeStagingDraft => ({
   rawContent: ''
 });
 
+const areRecipeIdArraysEqual = (left: string[], right: string[]): boolean => {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  return left.every((recipeId, index) => recipeId === right[index]);
+};
+
 const AppContent = (): JSX.Element => {
   const hydrateRecipes = useRecipeStore((state) => state.hydrate);
   const recipes = useRecipeStore((state) => state.recipes);
@@ -98,14 +107,17 @@ const AppContent = (): JSX.Element => {
   const recipeHydrated = useRecipeStore((state) => state.hydrated);
 
   const themeMode = useHomeStore((state) => state.themeMode);
+  const deckMode = useHomeStore((state) => state.deckMode);
+  const setDeckMode = useHomeStore((state) => state.setDeckMode);
   const hydrateHome = useHomeStore((state) => state.hydrate);
   const homeHydrated = useHomeStore((state) => state.hydrated);
 
-  const [deckMode, setDeckMode] = useState<DeckRendererMode>('list');
+  const [deckOrderIds, setDeckOrderIds] = useState<string[]>([]);
   const [deckSelectedRecipeId, setDeckSelectedRecipeId] = useState<string | null>(null);
   const [deckEditingRecipeId, setDeckEditingRecipeId] = useState<string | null>(null);
   const [appShellState, dispatchAppShell] = useReducer(appShellReducer, undefined, buildInitialAppShellState);
   const appShellRef = useRef(appShellState);
+  const initialDeckOrderRef = useRef<string[] | null>(null);
   const mountedRef = useRef(true);
   const parseSessionRef = useRef(0);
   const lastImportAttemptRef = useRef<ImportAttempt | null>(null);
@@ -133,20 +145,51 @@ const AppContent = (): JSX.Element => {
     document.documentElement.dataset.theme = themeMode;
   }, [themeMode]);
 
+  const resolvedDeckOrderIds = useMemo(() => {
+    if (!recipes.length) {
+      initialDeckOrderRef.current = null;
+      return [];
+    }
+
+    if (deckOrderIds.length) {
+      return reconcileDeckOrder(deckOrderIds, recipes);
+    }
+
+    if (!initialDeckOrderRef.current) {
+      initialDeckOrderRef.current = reconcileDeckOrder([], recipes);
+    }
+
+    return initialDeckOrderRef.current;
+  }, [deckOrderIds, recipes]);
+
   useEffect(() => {
     if (!recipes.length) {
+      setDeckOrderIds([]);
+      return;
+    }
+
+    setDeckOrderIds((current) => {
+      const next = current.length ? reconcileDeckOrder(current, recipes) : resolvedDeckOrderIds;
+      return areRecipeIdArraysEqual(current, next) ? current : next;
+    });
+  }, [recipes, resolvedDeckOrderIds]);
+
+  const deckRecipes = useMemo(() => orderRecipesByIds(recipes, resolvedDeckOrderIds), [recipes, resolvedDeckOrderIds]);
+
+  useEffect(() => {
+    if (!deckRecipes.length) {
       setDeckSelectedRecipeId(null);
       setDeckEditingRecipeId(null);
       return;
     }
 
     setDeckSelectedRecipeId((current) =>
-      current && recipes.some((recipe) => recipe.id === current) ? current : recipes[0].id
+      current && deckRecipes.some((recipe) => recipe.id === current) ? current : deckRecipes[0].id
     );
     setDeckEditingRecipeId((current) =>
-      current && recipes.some((recipe) => recipe.id === current) ? current : null
+      current && deckRecipes.some((recipe) => recipe.id === current) ? current : null
     );
-  }, [recipes]);
+  }, [deckRecipes]);
 
   useEffect(() => {
     if (!recipeHydrated || !homeHydrated) {
@@ -418,11 +461,11 @@ const AppContent = (): JSX.Element => {
 
       case 'root':
       default:
-        return currentRoute.root === 'deck' && recipes.length ? (
+        return currentRoute.root === 'deck' && deckRecipes.length ? (
           <DeckScene
             key="deck"
             mode={deckMode}
-            recipes={recipes}
+            recipes={deckRecipes}
             selectedRecipeId={deckSelectedRecipeId}
             editingRecipeId={deckEditingRecipeId}
             onModeChange={setDeckMode}

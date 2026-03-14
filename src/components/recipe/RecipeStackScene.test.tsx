@@ -45,7 +45,7 @@ describe('RecipeStackScene', () => {
     expect(onOpenRecipe).toHaveBeenCalledWith(recipe);
   });
 
-  it('opens the active recipe from the hero/title open zone tap', () => {
+  it('does not open the active recipe from the stack header', () => {
     const recipe = buildRecipe();
     const onOpenRecipe = vi.fn();
 
@@ -58,19 +58,9 @@ describe('RecipeStackScene', () => {
       />
     );
 
-    fireEvent.pointerDown(screen.getByRole('heading', { name: 'Test recipe' }), {
-      pointerId: 1,
-      clientX: 40,
-      clientY: 40
-    });
-    fireEvent.pointerUp(screen.getByRole('heading', { name: 'Test recipe' }), {
-      pointerId: 1,
-      clientX: 40,
-      clientY: 40
-    });
     fireEvent.click(screen.getByRole('heading', { name: 'Test recipe' }));
 
-    expect(onOpenRecipe).toHaveBeenCalledWith(recipe);
+    expect(onOpenRecipe).not.toHaveBeenCalled();
   });
 
   it('does not open the recipe when tapping inside the ingredient body', () => {
@@ -89,5 +79,33 @@ describe('RecipeStackScene', () => {
     fireEvent.click(screen.getByText('Salt'));
 
     expect(onOpenRecipe).not.toHaveBeenCalled();
+  });
+
+  it('wraps around to the first recipe when swiping left from the last one', () => {
+    vi.useFakeTimers();
+
+    const firstRecipe = buildRecipe({ id: 'recipe-1', title: 'First recipe' });
+    const secondRecipe = buildRecipe({ id: 'recipe-2', title: 'Second recipe' });
+    const onSelectRecipe = vi.fn();
+    const { container } = render(
+      <RecipeStackScene
+        recipes={[firstRecipe, secondRecipe]}
+        selectedRecipeId={secondRecipe.id}
+        onSelectRecipe={onSelectRecipe}
+        onOpenRecipe={vi.fn()}
+      />
+    );
+
+    const swipeZone = container.querySelector('.recipe-stack-gutter-right');
+    expect(swipeZone).not.toBeNull();
+
+    fireEvent.pointerDown(swipeZone!, { pointerId: 1, clientX: 260, clientY: 120 });
+    fireEvent.pointerMove(swipeZone!, { pointerId: 1, clientX: 24, clientY: 120 });
+    fireEvent.pointerUp(swipeZone!, { pointerId: 1, clientX: 24, clientY: 120 });
+    vi.advanceTimersByTime(220);
+
+    expect(onSelectRecipe).toHaveBeenCalledWith(firstRecipe.id);
+
+    vi.useRealTimers();
   });
 });

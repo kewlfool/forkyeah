@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { Recipe, ThemeMode, TimeReminder, TimelessChimeMode } from '../types/models';
+import type { DeckRendererMode, Recipe, ThemeMode, TimeReminder, TimelessChimeMode } from '../types/models';
 import { normalizeRecipe } from '../utils/recipes';
 
 interface SettingRecord {
@@ -85,6 +85,7 @@ export const removeTimeReminderFromDB = async (reminderId: string): Promise<void
 };
 
 const THEME_MODE_KEY = 'themeMode';
+const DECK_RENDERER_MODE_KEY = 'deckRendererMode';
 const TIMELESS_CHIME_MODE_KEY = 'timelessChimeMode';
 const TIMELESS_CHIME_FROM_HOUR_KEY = 'timelessChimeFromHour';
 const TIMELESS_CHIME_TILL_HOUR_KEY = 'timelessChimeTillHour';
@@ -94,6 +95,14 @@ const TIMELESS_CHIME_RANDOM_MINUTE_2_KEY = 'timelessChimeRandomMinute2';
 
 const parseThemeMode = (value: string): ThemeMode | null => {
   if (value === 'light' || value === 'dark') {
+    return value;
+  }
+
+  return null;
+};
+
+const parseDeckRendererMode = (value: string): DeckRendererMode | null => {
+  if (value === 'list' || value === 'grid' || value === 'stack') {
     return value;
   }
 
@@ -148,6 +157,19 @@ export const loadThemeMode = async (): Promise<ThemeMode | null> => {
 
 export const saveThemeMode = async (mode: ThemeMode): Promise<void> => {
   await db.settings.put({ key: THEME_MODE_KEY, value: mode });
+};
+
+export const loadDeckRendererMode = async (): Promise<DeckRendererMode | null> => {
+  const row = await db.settings.get(DECK_RENDERER_MODE_KEY);
+  if (!row) {
+    return null;
+  }
+
+  return parseDeckRendererMode(row.value);
+};
+
+export const saveDeckRendererMode = async (mode: DeckRendererMode): Promise<void> => {
+  await db.settings.put({ key: DECK_RENDERER_MODE_KEY, value: mode });
 };
 
 export const loadTimelessChimeMode = async (): Promise<TimelessChimeMode | null> => {

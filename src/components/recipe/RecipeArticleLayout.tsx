@@ -8,6 +8,7 @@ interface RecipeArticleLayoutProps {
   headerProps?: HTMLAttributes<HTMLElement>;
   titleProps?: HTMLAttributes<HTMLHeadingElement>;
   heroProps?: HTMLAttributes<HTMLDivElement>;
+  showDescription?: boolean;
   ingredientsContent: ReactNode;
   stepsContent: ReactNode;
   notesContent?: ReactNode;
@@ -35,6 +36,7 @@ export const RecipeArticleLayout = ({
   headerProps,
   titleProps,
   heroProps,
+  showDescription = true,
   ingredientsContent,
   stepsContent,
   notesContent,
@@ -53,7 +55,9 @@ export const RecipeArticleLayout = ({
           <h1 {...titleProps}>{recipe.title || 'Untitled recipe'}</h1>
           {headerAction ?? null}
         </div>
-        {recipe.description.trim() ? <p className="recipe-description">{recipe.description}</p> : null}
+        {showDescription && recipe.description.trim() ? (
+          <p className="recipe-description">{recipe.description}</p>
+        ) : null}
         <div className="recipe-meta-row">{lastCookedControl}</div>
       </header>
 
