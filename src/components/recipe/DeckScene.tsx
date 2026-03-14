@@ -1,9 +1,10 @@
 import { motion } from 'framer-motion';
-import { LayoutGrid, List, Plus } from 'lucide-react';
+import { Layers3, LayoutGrid, List, Plus } from 'lucide-react';
 import { useEffect, useRef, type JSX } from 'react';
 import type { DeckRendererMode } from '../../types/models';
 import { DeckGridRenderer } from './DeckGridRenderer';
 import { DeckListRenderer } from './DeckListRenderer';
+import { RecipeStackScene } from './RecipeStackScene';
 import type { DeckRendererProps } from './deckShared';
 
 interface DeckSceneProps extends Omit<DeckRendererProps, 'registerItemRef'> {
@@ -87,9 +88,16 @@ export const DeckScene = ({
     onRequestImage
   };
 
-  const nextMode = mode === 'list' ? 'grid' : 'list';
-  const modeIcon = mode === 'list' ? <LayoutGrid size={18} /> : <List size={18} />;
-  const modeLabel = mode === 'list' ? 'Switch to grid view' : 'Switch to list view';
+  const nextMode: DeckRendererMode =
+    mode === 'list' ? 'grid' : mode === 'grid' ? 'stack' : 'list';
+  const modeIcon =
+    nextMode === 'grid' ? <LayoutGrid size={18} /> : nextMode === 'stack' ? <Layers3 size={18} /> : <List size={18} />;
+  const modeLabel =
+    nextMode === 'grid'
+      ? 'Switch to grid view'
+      : nextMode === 'stack'
+        ? 'Switch to stack view'
+        : 'Switch to list view';
 
   return (
     <motion.section
@@ -107,7 +115,15 @@ export const DeckScene = ({
         </div>
       </header>
 
-      {mode === 'grid' ? (
+      {mode === 'stack' ? (
+        <RecipeStackScene
+          key="stack"
+          recipes={recipes}
+          selectedRecipeId={selectedRecipeId}
+          onSelectRecipe={onSelectRecipe}
+          onOpenRecipe={onOpenRecipe}
+        />
+      ) : mode === 'grid' ? (
         <DeckGridRenderer key="grid" {...rendererProps} />
       ) : (
         <DeckListRenderer key="list" {...rendererProps} />

@@ -7,6 +7,7 @@ import { usePinchToClose } from '../../hooks/usePinchToClose';
 import { useRecipeStore, type RecipeInput } from '../../store/useRecipeStore';
 import type { Recipe } from '../../types/models';
 import { IngredientEditorSheet } from './IngredientEditorSheet';
+import { RecipeArticleLayout } from './RecipeArticleLayout';
 import { RecipeIngredientList } from './RecipeIngredientList';
 import { RecipePeekSheet } from './RecipePeekSheet';
 import {
@@ -45,17 +46,6 @@ const StepItem = ({ item, isDone, onSwipeRight }: StepItemProps): JSX.Element =>
   );
 };
 
-const collectRecipeTags = (recipe: Recipe): string[] => {
-  const deduped = new Set<string>();
-  for (const item of [...(recipe.categories ?? []), ...(recipe.cuisines ?? []), ...(recipe.tags ?? [])]) {
-    const trimmed = item.trim();
-    if (trimmed) {
-      deduped.add(trimmed);
-    }
-  }
-  return Array.from(deduped);
-};
-
 export const RecipeScreen = ({ recipe, onClose }: RecipeScreenProps): JSX.Element => {
   const navIconSize = 18;
   const [uiState, dispatchUi] = useReducer(
@@ -78,9 +68,6 @@ export const RecipeScreen = ({ recipe, onClose }: RecipeScreenProps): JSX.Elemen
   const navLongPress = useLongPress({
     onLongPress: onClose
   });
-
-  const hasHeroImage = Boolean(recipe.imageUrl);
-  const displayTags = useMemo(() => collectRecipeTags(recipe), [recipe]);
 
   const lastCookedLabel = useMemo(() => {
     if (!recipe.lastCooked) {
@@ -218,16 +205,15 @@ export const RecipeScreen = ({ recipe, onClose }: RecipeScreenProps): JSX.Elemen
       onTouchEnd={pinch.onTouchEnd}
       onTouchCancel={pinch.onTouchCancel}
     >
-      <header className="recipe-header">
-        <div className="recipe-title-row">
-          <h1
-            onPointerDown={titleLongPress.onPointerDown}
-            onPointerUp={titleLongPress.onPointerUp}
-            onPointerCancel={titleLongPress.onPointerCancel}
-            onPointerLeave={titleLongPress.onPointerLeave}
-          >
-            {recipe.title || 'Untitled recipe'}
-          </h1>
+      <RecipeArticleLayout
+        recipe={recipe}
+        titleProps={{
+          onPointerDown: titleLongPress.onPointerDown,
+          onPointerUp: titleLongPress.onPointerUp,
+          onPointerCancel: titleLongPress.onPointerCancel,
+          onPointerLeave: titleLongPress.onPointerLeave
+        }}
+        headerAction={
           <button
             type="button"
             className="plain-icon-button"
@@ -238,9 +224,8 @@ export const RecipeScreen = ({ recipe, onClose }: RecipeScreenProps): JSX.Elemen
           >
             <Share2 size={16} />
           </button>
-        </div>
-        {recipe.description.trim() ? <p className="recipe-description">{recipe.description}</p> : null}
-        <div className="recipe-meta-row">
+        }
+        lastCookedControl={
           <button
             type="button"
             className="recipe-title-meta recipe-cooked-button"
@@ -251,45 +236,8 @@ export const RecipeScreen = ({ recipe, onClose }: RecipeScreenProps): JSX.Elemen
           >
             {lastCookedLabel}
           </button>
-        </div>
-      </header>
-
-      <div className="recipe-content">
-        <div className="recipe-hero">
-          <div className={`recipe-hero-image ${hasHeroImage ? 'has-image' : ''}`} role="presentation">
-            {hasHeroImage ? (
-              <img
-                src={recipe.imageUrl}
-                alt=""
-                className="recipe-hero-image-img"
-                loading="eager"
-                decoding="async"
-                draggable={false}
-              />
-            ) : null}
-          </div>
-          <div className="recipe-timing">
-            <div>
-              <span className="muted">Prep</span>
-              <strong>{recipe.prepTime || '—'}</strong>
-            </div>
-            <div>
-              <span className="muted">Cook</span>
-              <strong>{recipe.cookTime || '—'}</strong>
-            </div>
-          </div>
-        </div>
-
-        {displayTags.length ? (
-          <div className="recipe-tag-row recipe-tag-row-hero">
-            {displayTags.map((tag) => (
-              <span key={tag}>{tag}</span>
-            ))}
-          </div>
-        ) : null}
-
-        <section className="recipe-section">
-          <h2>Ingredients</h2>
+        }
+        ingredientsContent={
           <RecipeIngredientList
             ingredients={recipe.ingredients}
             ingredientDone={uiState.ingredientDone}
@@ -299,11 +247,9 @@ export const RecipeScreen = ({ recipe, onClose }: RecipeScreenProps): JSX.Elemen
             onEdit={handleEditIngredient}
             onDelete={handleDeleteIngredient}
           />
-        </section>
-
-        <section className="recipe-section">
-          <h2>Steps</h2>
-          {recipe.steps.length ? (
+        }
+        stepsContent={
+          recipe.steps.length ? (
             <ol className="recipe-steps-list">
               {recipe.steps.map((item, index) => (
                 <StepItem
@@ -316,64 +262,60 @@ export const RecipeScreen = ({ recipe, onClose }: RecipeScreenProps): JSX.Elemen
             </ol>
           ) : (
             <p className="muted">No steps yet.</p>
-          )}
-        </section>
-
-        <section className="recipe-section">
-          <h2>Notes</h2>
-          {recipe.notes.trim() ? <p>{recipe.notes}</p> : <p className="muted">No notes yet.</p>}
-        </section>
-      </div>
-
-      <div
-        className="recipe-nav"
-        onPointerDown={navLongPress.onPointerDown}
-        onPointerUp={navLongPress.onPointerUp}
-        onPointerCancel={navLongPress.onPointerCancel}
-        onPointerLeave={navLongPress.onPointerLeave}
-      >
-        <button
-          type="button"
-          className={`recipe-nav-icon ${uiState.peekPanel === 'ingredients' ? 'is-active' : ''}`}
-          onClick={() => openPeekPanel('ingredients')}
-          aria-label="Ingredients"
-        >
-          <Utensils size={navIconSize} />
-        </button>
-        <button
-          type="button"
-          className={`recipe-nav-icon ${uiState.peekPanel === 'notes' ? 'is-active' : ''}`}
-          onClick={() => openPeekPanel('notes')}
-          aria-label="Notes"
-        >
-          <StickyNote size={navIconSize} />
-        </button>
-        <button
-          type="button"
-          className={`recipe-nav-icon ${uiState.peekPanel === 'nutrients' ? 'is-active' : ''}`}
-          onClick={() => openPeekPanel('nutrients')}
-          aria-label="Nutrients"
-        >
-          <Leaf size={navIconSize} />
-        </button>
-        <button type="button" className="recipe-nav-icon recipe-nav-spacer" aria-label="Cook mode">
-          <ChefHat size={navIconSize} />
-        </button>
-        <button
-          type="button"
-          className={`recipe-nav-icon ${uiState.peekPanel === 'timer' ? 'is-active' : ''}`}
-          onClick={() => openPeekPanel('timer')}
-          aria-label="Timer"
-        >
-          {uiState.timerEndsAt ? (
-            <span className="timer-dial" style={{ '--progress': timerProgress } as CSSProperties}>
-              <span className="timer-dial-inner" />
-            </span>
-          ) : (
-            <Timer size={navIconSize} />
-          )}
-        </button>
-      </div>
+          )
+        }
+        footer={
+          <div
+            className="recipe-nav"
+            onPointerDown={navLongPress.onPointerDown}
+            onPointerUp={navLongPress.onPointerUp}
+            onPointerCancel={navLongPress.onPointerCancel}
+            onPointerLeave={navLongPress.onPointerLeave}
+          >
+            <button
+              type="button"
+              className={`recipe-nav-icon ${uiState.peekPanel === 'ingredients' ? 'is-active' : ''}`}
+              onClick={() => openPeekPanel('ingredients')}
+              aria-label="Ingredients"
+            >
+              <Utensils size={navIconSize} />
+            </button>
+            <button
+              type="button"
+              className={`recipe-nav-icon ${uiState.peekPanel === 'notes' ? 'is-active' : ''}`}
+              onClick={() => openPeekPanel('notes')}
+              aria-label="Notes"
+            >
+              <StickyNote size={navIconSize} />
+            </button>
+            <button
+              type="button"
+              className={`recipe-nav-icon ${uiState.peekPanel === 'nutrients' ? 'is-active' : ''}`}
+              onClick={() => openPeekPanel('nutrients')}
+              aria-label="Nutrients"
+            >
+              <Leaf size={navIconSize} />
+            </button>
+            <button type="button" className="recipe-nav-icon recipe-nav-spacer" aria-label="Cook mode">
+              <ChefHat size={navIconSize} />
+            </button>
+            <button
+              type="button"
+              className={`recipe-nav-icon ${uiState.peekPanel === 'timer' ? 'is-active' : ''}`}
+              onClick={() => openPeekPanel('timer')}
+              aria-label="Timer"
+            >
+              {uiState.timerEndsAt ? (
+                <span className="timer-dial" style={{ '--progress': timerProgress } as CSSProperties}>
+                  <span className="timer-dial-inner" />
+                </span>
+              ) : (
+                <Timer size={navIconSize} />
+              )}
+            </button>
+          </div>
+        }
+      />
 
       <RecipePeekSheet
         panel={uiState.peekPanel}

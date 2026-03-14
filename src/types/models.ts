@@ -1,6 +1,6 @@
 export type ThemeMode = 'light' | 'dark';
 export type TimelessChimeMode = 'hourly' | 'halfHourly' | 'random';
-export type DeckRendererMode = 'list' | 'grid';
+export type DeckRendererMode = 'list' | 'grid' | 'stack';
 
 export interface Recipe {
   id: string;

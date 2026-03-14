@@ -53,6 +53,32 @@ describe('DeckScene', () => {
     expect(onModeChange).toHaveBeenCalledWith('grid');
   });
 
+  it('cycles from grid mode to stack mode', () => {
+    const onModeChange = vi.fn();
+
+    render(
+      <DeckScene
+        mode="grid"
+        recipes={[buildRecipe()]}
+        selectedRecipeId="recipe-1"
+        editingRecipeId={null}
+        onModeChange={onModeChange}
+        onSelectRecipe={vi.fn()}
+        onOpenRecipe={vi.fn()}
+        onEnterEditMode={vi.fn()}
+        onExitEditMode={vi.fn()}
+        onEditRecipe={vi.fn()}
+        onDeleteRecipe={vi.fn()}
+        onRequestImage={vi.fn()}
+        onImport={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByLabelText('Switch to stack view'));
+
+    expect(onModeChange).toHaveBeenCalledWith('stack');
+  });
+
   it('exits edit mode when tapping outside the active deck item', () => {
     const onExitEditMode = vi.fn();
 

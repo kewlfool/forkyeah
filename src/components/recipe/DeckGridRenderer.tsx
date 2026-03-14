@@ -2,6 +2,28 @@ import type { JSX } from 'react';
 import { formatCookedDate } from '../../utils/recipes';
 import { type DeckRendererProps, useDeckItemInteractions } from './deckShared';
 
+const collectCuisineTags = (cuisines: string[]): string[] => {
+  const seen = new Set<string>();
+  const tags: string[] = [];
+
+  for (const cuisine of cuisines) {
+    const trimmed = cuisine.trim();
+    if (!trimmed) {
+      continue;
+    }
+
+    const key = trimmed.toLowerCase();
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    tags.push(trimmed);
+  }
+
+  return tags;
+};
+
 export const DeckGridRenderer = ({
   recipes,
   selectedRecipeId,
@@ -57,6 +79,7 @@ const DeckGridItem = ({
   onDeleteRecipe,
   onRequestImage
 }: DeckGridItemProps): JSX.Element => {
+  const cuisines = collectCuisineTags(recipe.cuisines ?? []);
   const { longPress, swipe, handleActivate } = useDeckItemInteractions({
     recipe,
     editing,
@@ -127,7 +150,16 @@ const DeckGridItem = ({
 
         <div className="deck-grid-copy">
           <strong>{recipe.title || 'Untitled recipe'}</strong>
-          <span className="deck-grid-date">Last cooked: {formatCookedDate(recipe.lastCooked)}</span>
+          <div className="deck-grid-meta">
+            <span className="deck-grid-date">Last cooked: {formatCookedDate(recipe.lastCooked)}</span>
+            {cuisines.length ? (
+              <div className="deck-grid-cuisines">
+                {cuisines.map((cuisine) => (
+                  <span key={cuisine}>{cuisine}</span>
+                ))}
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
     </article>

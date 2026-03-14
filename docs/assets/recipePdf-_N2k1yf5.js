@@ -1,4 +1,4 @@
-import{f as l}from"./index-2cU1jR0l.js";const c=`<!DOCTYPE html>
+import{f as l}from"./index-D2fMVKEG.js";const c=`<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
