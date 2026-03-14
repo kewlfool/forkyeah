@@ -1,5 +1,12 @@
 import { AnimatePresence } from 'framer-motion';
-import { useEffect, useReducer, useRef, useState, type ChangeEvent } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import {
+  appShellReducer,
+  buildInitialAppShellState,
+  type AppOverlay
+} from './app/appShellState';
+import { AppStatusOverlay } from './components/common/AppStatusOverlay';
+import { ImagePickerController } from './components/common/ImagePickerController';
 import { DeckScene } from './components/recipe/DeckScene';
 import { RecipeEmptyState } from './components/recipe/RecipeEmptyState';
 import { RecipeImportSheet, type RecipeImportPayload } from './components/recipe/RecipeImportSheet';
@@ -12,226 +19,75 @@ import {
 import { useWakeLock } from './hooks/useWakeLock';
 import { useHomeStore } from './store/useHomeStore';
 import { useRecipeStore, type RecipeInput } from './store/useRecipeStore';
-import type { Recipe } from './types/models';
+import type { DeckRendererMode, Recipe } from './types/models';
 import { compressImageFile } from './utils/imageCompression';
-import { parseRecipeImport } from './utils/recipeParsing';
+import {
+  parseRecipeImport,
+  type ParsedRecipeDraft,
+  type RecipeImportInput,
+  type RecipeImportResult
+} from './utils/recipeParsing';
 
-type RootScene = 'empty' | 'deck';
-
-type RootRoute = {
-  type: 'root';
-  root: RootScene;
-};
-
-type SearchRoute = {
-  type: 'search';
-  root: RootScene;
-  query: string;
-};
-
-type RecipeRoute = {
-  type: 'recipe';
-  root: RootScene;
-  recipeId: string;
-  fallbackRecipe: Recipe;
-};
-
-type StagingReturnTarget =
-  | { type: 'root' }
-  | {
-      type: 'search';
-      query: string;
-    };
-
-type StagingRoute = {
-  type: 'staging';
-  root: RootScene;
-  draft: RecipeStagingDraft;
-  mode: 'create' | 'edit';
-  editingRecipeId: string | null;
-  returnTo: StagingReturnTarget;
-};
-
-type AppRoute = RootRoute | SearchRoute | RecipeRoute | StagingRoute;
-
-type AppOverlay =
-  | { type: 'none' }
-  | { type: 'import-sheet' }
-  | {
-      type: 'image-picker';
-      recipeId: string;
-    };
-
-interface AppShellState {
-  route: AppRoute;
-  overlay: AppOverlay;
+interface ImportAttempt {
+  source: 'sheet' | 'search';
+  input: RecipeImportInput;
+  searchQuery?: string;
 }
 
-type AppShellAction =
-  | { type: 'sync-root'; hasRecipes: boolean }
-  | { type: 'open-import' }
-  | { type: 'request-image'; recipeId: string }
-  | { type: 'close-overlay' }
-  | { type: 'open-search' }
-  | { type: 'set-search-query'; query: string }
-  | { type: 'open-recipe'; recipe: Recipe }
-  | {
-      type: 'open-staging';
-      draft: RecipeStagingDraft;
-      mode: 'create' | 'edit';
-      editingRecipeId: string | null;
-      returnTo: StagingReturnTarget;
-    }
-  | { type: 'close-route' }
-  | { type: 'reset-to-root'; hasRecipes: boolean };
-
-const rootSceneForRecipes = (hasRecipes: boolean): RootScene => (hasRecipes ? 'deck' : 'empty');
-
-const initialRoute = (): RootRoute => ({
-  type: 'root',
-  root: 'deck'
+const buildStagingDraft = (parsed: ParsedRecipeDraft): RecipeStagingDraft => ({
+  title: parsed.title,
+  description: parsed.description,
+  imageUrl: parsed.imageUrl,
+  ingredients: parsed.ingredients,
+  steps: parsed.steps,
+  tags: parsed.tags,
+  categories: parsed.categories,
+  cuisines: parsed.cuisines,
+  nutrients: parsed.nutrients,
+  prepTime: parsed.prepTime,
+  cookTime: parsed.cookTime,
+  notes: parsed.notes,
+  lastCooked: null,
+  sourceLabel: parsed.sourceLabel,
+  rawContent: parsed.rawContent,
+  importWarning: parsed.importWarning
 });
 
-const buildInitialAppShellState = (): AppShellState => ({
-  route: initialRoute(),
-  overlay: { type: 'none' }
+const buildEditingDraft = (recipe: Recipe): RecipeStagingDraft => ({
+  title: recipe.title ?? '',
+  description: recipe.description ?? '',
+  imageUrl: recipe.imageUrl ?? '',
+  ingredients: recipe.ingredients ?? [],
+  steps: recipe.steps ?? [],
+  tags: recipe.tags ?? [],
+  categories: recipe.categories ?? [],
+  cuisines: recipe.cuisines ?? [],
+  nutrients: recipe.nutrients ?? [],
+  prepTime: recipe.prepTime ?? '',
+  cookTime: recipe.cookTime ?? '',
+  notes: recipe.notes ?? '',
+  lastCooked: recipe.lastCooked ?? null,
+  sourceLabel: 'Saved recipe',
+  rawContent: recipe.notes ?? ''
 });
 
-const syncRouteRoot = (route: AppRoute, root: RootScene): AppRoute => {
-  switch (route.type) {
-    case 'root':
-      return { type: 'root', root };
-
-    case 'search':
-      return { ...route, root };
-
-    case 'recipe':
-      return { ...route, root };
-
-    case 'staging':
-      return { ...route, root };
-
-    default:
-      return route;
-  }
-};
-
-const routeAfterClose = (route: AppRoute): AppRoute => {
-  switch (route.type) {
-    case 'search':
-    case 'recipe':
-      return { type: 'root', root: route.root };
-
-    case 'staging':
-      return route.returnTo.type === 'search'
-        ? { type: 'search', root: route.root, query: route.returnTo.query }
-        : { type: 'root', root: route.root };
-
-    case 'root':
-    default:
-      return route;
-  }
-};
-
-const appShellReducer = (state: AppShellState, action: AppShellAction): AppShellState => {
-  switch (action.type) {
-    case 'sync-root': {
-      const nextRoot = rootSceneForRecipes(action.hasRecipes);
-      if (state.route.root === nextRoot) {
-        return state;
-      }
-      return {
-        ...state,
-        route: syncRouteRoot(state.route, nextRoot)
-      };
-    }
-
-    case 'open-import':
-      return {
-        ...state,
-        overlay: { type: 'import-sheet' }
-      };
-
-    case 'request-image':
-      return {
-        ...state,
-        overlay: { type: 'image-picker', recipeId: action.recipeId }
-      };
-
-    case 'close-overlay':
-      return state.overlay.type === 'none'
-        ? state
-        : {
-            ...state,
-            overlay: { type: 'none' }
-          };
-
-    case 'open-search':
-      return {
-        route: {
-          type: 'search',
-          root: state.route.root,
-          query: ''
-        },
-        overlay: { type: 'none' }
-      };
-
-    case 'set-search-query':
-      if (state.route.type !== 'search') {
-        return state;
-      }
-
-      return {
-        ...state,
-        route: {
-          ...state.route,
-          query: action.query
-        }
-      };
-
-    case 'open-recipe':
-      return {
-        route: {
-          type: 'recipe',
-          root: state.route.root,
-          recipeId: action.recipe.id,
-          fallbackRecipe: action.recipe
-        },
-        overlay: { type: 'none' }
-      };
-
-    case 'open-staging':
-      return {
-        route: {
-          type: 'staging',
-          root: state.route.root,
-          draft: action.draft,
-          mode: action.mode,
-          editingRecipeId: action.editingRecipeId,
-          returnTo: action.returnTo
-        },
-        overlay: { type: 'none' }
-      };
-
-    case 'close-route':
-      return {
-        ...state,
-        route: routeAfterClose(state.route)
-      };
-
-    case 'reset-to-root':
-      return {
-        route: {
-          type: 'root',
-          root: rootSceneForRecipes(action.hasRecipes)
-        },
-        overlay: { type: 'none' }
-      };
-
-    default:
-      return state;
-  }
-};
+const buildManualDraft = (): RecipeStagingDraft => ({
+  title: '',
+  description: '',
+  imageUrl: '',
+  ingredients: [],
+  steps: [],
+  tags: [],
+  categories: [],
+  cuisines: [],
+  nutrients: [],
+  prepTime: '',
+  cookTime: '',
+  notes: '',
+  lastCooked: null,
+  sourceLabel: 'Manual',
+  rawContent: ''
+});
 
 const AppContent = (): JSX.Element => {
   const hydrateRecipes = useRecipeStore((state) => state.hydrate);
@@ -245,14 +101,17 @@ const AppContent = (): JSX.Element => {
   const hydrateHome = useHomeStore((state) => state.hydrate);
   const homeHydrated = useHomeStore((state) => state.hydrated);
 
-  const [isParsing, setIsParsing] = useState(false);
+  const [deckMode, setDeckMode] = useState<DeckRendererMode>('list');
   const [deckSelectedRecipeId, setDeckSelectedRecipeId] = useState<string | null>(null);
   const [deckEditingRecipeId, setDeckEditingRecipeId] = useState<string | null>(null);
   const [appShellState, dispatchAppShell] = useReducer(appShellReducer, undefined, buildInitialAppShellState);
   const appShellRef = useRef(appShellState);
-  const imageInputRef = useRef<HTMLInputElement | null>(null);
   const mountedRef = useRef(true);
   const parseSessionRef = useRef(0);
+  const lastImportAttemptRef = useRef<ImportAttempt | null>(null);
+  const handleExitDeckEditMode = useCallback(() => {
+    setDeckEditingRecipeId(null);
+  }, []);
 
   useWakeLock();
 
@@ -298,23 +157,12 @@ const AppContent = (): JSX.Element => {
   }, [homeHydrated, recipeHydrated, recipes.length]);
 
   useEffect(() => {
-    if (appShellState.overlay.type !== 'image-picker') {
+    if (!recipeHydrated || !homeHydrated) {
       return;
     }
 
-    requestAnimationFrame(() => {
-      imageInputRef.current?.click();
-    });
-
-    const handleFocus = () => {
-      window.setTimeout(() => {
-        dispatchAppShell({ type: 'close-overlay' });
-      }, 0);
-    };
-
-    window.addEventListener('focus', handleFocus, { once: true });
-    return () => window.removeEventListener('focus', handleFocus);
-  }, [appShellState.overlay]);
+    dispatchAppShell({ type: 'clear-startup-overlay' });
+  }, [homeHydrated, recipeHydrated]);
 
   useEffect(() => {
     const route = appShellState.route;
@@ -329,73 +177,104 @@ const AppContent = (): JSX.Element => {
       ? recipes.find((recipe) => recipe.id === currentRoute.recipeId) ?? currentRoute.fallbackRecipe
       : null;
 
-  if (!recipeHydrated || !homeHydrated) {
-    return <main className="app-shell loading-shell">Loading...</main>;
-  }
-
-  if (isParsing) {
-    return <main className="app-shell loading-shell">Parsing recipe...</main>;
-  }
-
   const openImport = () => {
     setDeckEditingRecipeId(null);
     dispatchAppShell({ type: 'open-import' });
   };
 
+  const handleImportResult = useCallback(
+    (attempt: ImportAttempt, result: RecipeImportResult) => {
+      if (result.kind === 'draft') {
+        const returnTo =
+          attempt.source === 'search'
+            ? { type: 'search' as const, query: attempt.searchQuery ?? '' }
+            : { type: 'root' as const };
+
+        dispatchAppShell({
+          type: 'open-staging',
+          draft: buildStagingDraft(result.draft),
+          mode: 'create',
+          editingRecipeId: null,
+          returnTo
+        });
+        return;
+      }
+
+      const actions: NonNullable<Extract<AppOverlay, { type: 'status' }>['actions']> = [];
+      if (result.error.retryable) {
+        actions.push({ id: 'retry-import', label: 'Retry' });
+      }
+      if (!result.error.retryable && attempt.source === 'sheet') {
+        actions.push({ id: 'create-manual', label: 'Create manually' });
+      }
+      actions.push({
+        id: 'close',
+        label: 'Close',
+        appearance: actions.length ? 'ghost' : 'solid'
+      });
+
+      dispatchAppShell({
+        type: 'show-error-overlay',
+        title: result.error.title,
+        message: result.error.message,
+        actions
+      });
+    },
+    []
+  );
+
+  const runImportAttempt = useCallback(
+    async (attempt: ImportAttempt) => {
+      const parseSession = parseSessionRef.current + 1;
+      parseSessionRef.current = parseSession;
+      lastImportAttemptRef.current = attempt;
+      dispatchAppShell({ type: 'show-parsing-overlay' });
+
+      try {
+        const result = await parseRecipeImport(attempt.input);
+        if (!mountedRef.current || parseSessionRef.current !== parseSession) {
+          return;
+        }
+
+        if (attempt.source === 'search') {
+          const latestRoute = appShellRef.current.route;
+          if (latestRoute.type !== 'search') {
+            return;
+          }
+          attempt.searchQuery = latestRoute.query;
+        }
+
+        handleImportResult(attempt, result);
+      } finally {
+        if (mountedRef.current && parseSessionRef.current === parseSession) {
+          dispatchAppShell({ type: 'hide-parsing-overlay' });
+        }
+      }
+    },
+    [handleImportResult]
+  );
+
   const handleImportContinue = async (payload: RecipeImportPayload) => {
     const hasImportSource = Boolean(payload.url.trim() || payload.rawText.trim() || payload.file);
     if (!hasImportSource) {
+      dispatchAppShell({
+        type: 'show-error-overlay',
+        title: 'Invalid import',
+        message: 'Add a recipe link, PDF, or text before continuing.',
+        actions: [{ id: 'close', label: 'Close' }]
+      });
       return;
     }
 
-    const parseSession = parseSessionRef.current + 1;
-    parseSessionRef.current = parseSession;
-    dispatchAppShell({ type: 'close-overlay' });
-    setIsParsing(true);
-
-    try {
-      const parsed = await parseRecipeImport({
+    await runImportAttempt({
+      source: 'sheet',
+      input: {
         url: payload.url,
         rawText: payload.rawText,
         file: payload.file,
         fileName: payload.fileName
-      });
-
-      const draft: RecipeStagingDraft = {
-        title: parsed.title,
-        description: parsed.description,
-        imageUrl: parsed.imageUrl,
-        ingredients: parsed.ingredients,
-        steps: parsed.steps,
-        tags: parsed.tags,
-        categories: parsed.categories,
-        cuisines: parsed.cuisines,
-        nutrients: parsed.nutrients,
-        prepTime: parsed.prepTime,
-        cookTime: parsed.cookTime,
-        notes: parsed.notes,
-        lastCooked: null,
-        sourceLabel: parsed.sourceLabel,
-        rawContent: parsed.rawContent,
-        importWarning: parsed.importWarning
-      };
-
-      if (!mountedRef.current || parseSessionRef.current !== parseSession) {
-        return;
       }
-
-      dispatchAppShell({
-        type: 'open-staging',
-        draft,
-        mode: 'create',
-        editingRecipeId: null,
-        returnTo: { type: 'root' }
-      });
-    } finally {
-      if (mountedRef.current && parseSessionRef.current === parseSession) {
-        setIsParsing(false);
-      }
-    }
+    });
   };
 
   const handleAccept = (input: RecipeInput) => {
@@ -423,27 +302,9 @@ const AppContent = (): JSX.Element => {
   const handleEditRecipe = (recipe: Recipe) => {
     setDeckEditingRecipeId(null);
 
-    const draft: RecipeStagingDraft = {
-      title: recipe.title ?? '',
-      description: recipe.description ?? '',
-      imageUrl: recipe.imageUrl ?? '',
-      ingredients: recipe.ingredients ?? [],
-      steps: recipe.steps ?? [],
-      tags: recipe.tags ?? [],
-      categories: recipe.categories ?? [],
-      cuisines: recipe.cuisines ?? [],
-      nutrients: recipe.nutrients ?? [],
-      prepTime: recipe.prepTime ?? '',
-      cookTime: recipe.cookTime ?? '',
-      notes: recipe.notes ?? '',
-      lastCooked: recipe.lastCooked ?? null,
-      sourceLabel: 'Saved recipe',
-      rawContent: recipe.notes ?? ''
-    };
-
     dispatchAppShell({
       type: 'open-staging',
-      draft,
+      draft: buildEditingDraft(recipe),
       mode: 'edit',
       editingRecipeId: recipe.id,
       returnTo: { type: 'root' }
@@ -477,30 +338,14 @@ const AppContent = (): JSX.Element => {
     dispatchAppShell({ type: 'request-image', recipeId });
   };
 
-  const handleImageSelect = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    const latestState = appShellRef.current;
-    const targetRecipeId =
-      latestState.overlay.type === 'image-picker'
-        ? latestState.overlay.recipeId
-        : latestState.route.type === 'recipe'
-          ? latestState.route.recipeId
-          : deckSelectedRecipeId;
-
+  const handleImagePick = async (recipeId: string, file: File) => {
     try {
-      if (!file || !targetRecipeId) {
-        return;
-      }
-
       const dataUrl = await compressImageFile(file);
       if (dataUrl) {
-        handleUpdateImage(targetRecipeId, dataUrl);
+        handleUpdateImage(recipeId, dataUrl);
       }
     } catch {
       // ignore image processing errors
-    } finally {
-      event.target.value = '';
-      dispatchAppShell({ type: 'close-overlay' });
     }
   };
 
@@ -511,54 +356,12 @@ const AppContent = (): JSX.Element => {
   };
 
   const handleSearchImport = async (url: string): Promise<void> => {
-    const parseSession = parseSessionRef.current + 1;
-    parseSessionRef.current = parseSession;
-    setIsParsing(true);
-
-    try {
-      const parsed = await parseRecipeImport({ url });
-      if (!mountedRef.current || parseSessionRef.current !== parseSession) {
-        return;
-      }
-
-      const latestRoute = appShellRef.current.route;
-      if (latestRoute.type !== 'search') {
-        return;
-      }
-
-      const draft: RecipeStagingDraft = {
-        title: parsed.title,
-        description: parsed.description,
-        imageUrl: parsed.imageUrl,
-        ingredients: parsed.ingredients,
-        steps: parsed.steps,
-        tags: parsed.tags,
-        categories: parsed.categories,
-        cuisines: parsed.cuisines,
-        nutrients: parsed.nutrients,
-        prepTime: parsed.prepTime,
-        cookTime: parsed.cookTime,
-        notes: parsed.notes,
-        lastCooked: null,
-        sourceLabel: parsed.sourceLabel,
-        rawContent: parsed.rawContent,
-        importWarning: parsed.importWarning
-      };
-
-      dispatchAppShell({
-        type: 'open-staging',
-        draft,
-        mode: 'create',
-        editingRecipeId: null,
-        returnTo: { type: 'search', query: latestRoute.query }
-      });
-    } catch {
-      // ignore search import failures
-    } finally {
-      if (mountedRef.current && parseSessionRef.current === parseSession) {
-        setIsParsing(false);
-      }
-    }
+    const latestRoute = appShellRef.current.route;
+    await runImportAttempt({
+      source: 'search',
+      input: { url },
+      searchQuery: latestRoute.type === 'search' ? latestRoute.query : ''
+    });
   };
 
   const handleDeleteRecipe = (recipeId: string) => {
@@ -618,13 +421,15 @@ const AppContent = (): JSX.Element => {
         return currentRoute.root === 'deck' && recipes.length ? (
           <DeckScene
             key="deck"
+            mode={deckMode}
             recipes={recipes}
             selectedRecipeId={deckSelectedRecipeId}
             editingRecipeId={deckEditingRecipeId}
+            onModeChange={setDeckMode}
             onSelectRecipe={setDeckSelectedRecipeId}
             onOpenRecipe={handleOpenRecipe}
             onEnterEditMode={setDeckEditingRecipeId}
-            onExitEditMode={() => setDeckEditingRecipeId(null)}
+            onExitEditMode={handleExitDeckEditMode}
             onEditRecipe={handleEditRecipe}
             onDeleteRecipe={handleDeleteRecipe}
             onRequestImage={handleRequestImage}
@@ -651,27 +456,9 @@ const AppContent = (): JSX.Element => {
         onCreateManual={() => {
           setDeckEditingRecipeId(null);
 
-          const draft: RecipeStagingDraft = {
-            title: '',
-            description: '',
-            imageUrl: '',
-            ingredients: [],
-            steps: [],
-            tags: [],
-            categories: [],
-            cuisines: [],
-            nutrients: [],
-            prepTime: '',
-            cookTime: '',
-            notes: '',
-            lastCooked: null,
-            sourceLabel: 'Manual',
-            rawContent: ''
-          };
-
           dispatchAppShell({
             type: 'open-staging',
-            draft,
+            draft: buildManualDraft(),
             mode: 'create',
             editingRecipeId: null,
             returnTo: { type: 'root' }
@@ -679,12 +466,43 @@ const AppContent = (): JSX.Element => {
         }}
       />
 
-      <input
-        ref={imageInputRef}
-        type="file"
-        accept="image/*"
-        className="recipe-card-image-input"
-        onChange={handleImageSelect}
+      <AppStatusOverlay
+        open={appShellState.overlay.type === 'status'}
+        tone={appShellState.overlay.type === 'status' && appShellState.overlay.kind === 'error' ? 'error' : 'loading'}
+        title={appShellState.overlay.type === 'status' ? appShellState.overlay.title : ''}
+        message={appShellState.overlay.type === 'status' ? appShellState.overlay.message : undefined}
+        actions={appShellState.overlay.type === 'status' ? appShellState.overlay.actions : undefined}
+        onAction={(actionId) => {
+          if (actionId === 'retry-import') {
+            const lastAttempt = lastImportAttemptRef.current;
+            if (lastAttempt) {
+              void runImportAttempt({ ...lastAttempt });
+            }
+            return;
+          }
+
+          if (actionId === 'create-manual') {
+            setDeckEditingRecipeId(null);
+            dispatchAppShell({
+              type: 'open-staging',
+              draft: buildManualDraft(),
+              mode: 'create',
+              editingRecipeId: null,
+              returnTo: { type: 'root' }
+            });
+            return;
+          }
+
+          dispatchAppShell({ type: 'close-overlay' });
+        }}
+      />
+
+      <ImagePickerController
+        requestRecipeId={
+          appShellState.overlay.type === 'image-picker' ? appShellState.overlay.recipeId : null
+        }
+        onPick={handleImagePick}
+        onCancel={() => dispatchAppShell({ type: 'close-overlay' })}
       />
     </main>
   );

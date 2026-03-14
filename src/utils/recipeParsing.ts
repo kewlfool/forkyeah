@@ -1,6 +1,3 @@
-import { GlobalWorkerOptions, getDocument } from 'pdfjs-dist';
-import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-
 type RecipeParseSource = 'pdf' | 'url' | 'manual';
 
 export interface RecipeImportInput {
@@ -29,6 +26,29 @@ export interface ParsedRecipeDraft {
   importWarning?: string;
 }
 
+export type RecipeImportErrorCode =
+  | 'invalid-input'
+  | 'scraper-timeout'
+  | 'scraper-unreachable'
+  | 'pdf-read-failed';
+
+export interface RecipeImportError {
+  code: RecipeImportErrorCode;
+  title: string;
+  message: string;
+  retryable: boolean;
+}
+
+export type RecipeImportResult =
+  | {
+      kind: 'draft';
+      draft: ParsedRecipeDraft;
+    }
+  | {
+      kind: 'error';
+      error: RecipeImportError;
+    };
+
 interface ParseLineResult {
   prepTime?: string;
   cookTime?: string;
@@ -49,8 +69,27 @@ const SCRAPER_ENDPOINT = (() => {
   return 'https://forkyeah-api-972537921250.us-central1.run.app/api/scrape';
 })();
 const SCRAPER_REQUEST_TIMEOUT_MS = 15000;
+let pdfRuntimePromise: Promise<{
+  getDocument: typeof import('pdfjs-dist').getDocument;
+}> | null = null;
 
-GlobalWorkerOptions.workerSrc = pdfWorker;
+const loadPdfRuntime = async (): Promise<{
+  getDocument: typeof import('pdfjs-dist').getDocument;
+}> => {
+  if (!pdfRuntimePromise) {
+    pdfRuntimePromise = Promise.all([
+      import('pdfjs-dist'),
+      import('pdfjs-dist/build/pdf.worker.min.mjs?url')
+    ]).then(([pdfjs, workerModule]) => {
+      pdfjs.GlobalWorkerOptions.workerSrc = workerModule.default;
+      return {
+        getDocument: pdfjs.getDocument
+      };
+    });
+  }
+
+  return pdfRuntimePromise;
+};
 
 const previewText = (value: string): string => {
   const trimmed = value.trim();
@@ -230,6 +269,7 @@ const deriveTitleFromFile = (value: string | null | undefined): string => {
 };
 
 const extractPdfText = async (file: File): Promise<string> => {
+  const { getDocument } = await loadPdfRuntime();
   const data = await file.arrayBuffer();
   const loadingTask = getDocument({ data });
   const pdf = await loadingTask.promise;
@@ -399,7 +439,7 @@ interface BackendRecipeResponse {
 
 interface BackendFetchResult {
   draft: ParsedRecipeDraft | null;
-  error: string | null;
+  error: RecipeImportError | null;
 }
 
 const IMPORT_WARNING =
@@ -427,9 +467,68 @@ const readBackendError = async (response: Response): Promise<string | null> => {
   return null;
 };
 
+const createImportError = (
+  code: RecipeImportErrorCode,
+  overrides?: Partial<Omit<RecipeImportError, 'code'>>
+): RecipeImportError => {
+  switch (code) {
+    case 'invalid-input':
+      return {
+        code,
+        title: overrides?.title ?? 'Invalid import',
+        message: overrides?.message ?? 'Add a recipe link, PDF, or text before continuing.',
+        retryable: overrides?.retryable ?? false
+      };
+
+    case 'scraper-timeout':
+      return {
+        code,
+        title: overrides?.title ?? 'Import timed out',
+        message:
+          overrides?.message ??
+          'The recipe service took too long to respond. Retry the import or create the recipe manually.',
+        retryable: overrides?.retryable ?? true
+      };
+
+    case 'scraper-unreachable':
+      return {
+        code,
+        title: overrides?.title ?? 'Import unavailable',
+        message:
+          overrides?.message ??
+          'The recipe import service could not be reached. Retry in a moment or create the recipe manually.',
+        retryable: overrides?.retryable ?? true
+      };
+
+    case 'pdf-read-failed':
+      return {
+        code,
+        title: overrides?.title ?? 'PDF import failed',
+        message:
+          overrides?.message ??
+          'The PDF could not be read. Try another file or create the recipe manually.',
+        retryable: overrides?.retryable ?? false
+      };
+
+    default:
+      return {
+        code,
+        title: overrides?.title ?? 'Import failed',
+        message: overrides?.message ?? 'The recipe could not be imported.',
+        retryable: overrides?.retryable ?? false
+      };
+  }
+};
+
 const fetchRecipeFromBackend = async (url: string): Promise<BackendFetchResult> => {
   if (!SCRAPER_ENDPOINT) {
-    return { draft: null, error: 'Scraper not configured.' };
+    return {
+      draft: null,
+      error: createImportError('scraper-unreachable', {
+        message: 'The recipe import service is not configured.',
+        retryable: false
+      })
+    };
   }
 
   const controller = new AbortController();
@@ -443,9 +542,17 @@ const fetchRecipeFromBackend = async (url: string): Promise<BackendFetchResult> 
     });
     if (!response.ok) {
       const errorMessage = await readBackendError(response);
+      const error =
+        response.status >= 500
+          ? createImportError('scraper-unreachable', { message: errorMessage ?? undefined })
+          : createImportError('invalid-input', {
+              title: 'Import rejected',
+              message: errorMessage ?? 'The provided recipe link could not be imported.',
+              retryable: false
+            });
       return {
         draft: null,
-        error: errorMessage ?? `Scraper error (${response.status}).`
+        error
       };
     }
 
@@ -471,18 +578,15 @@ const fetchRecipeFromBackend = async (url: string): Promise<BackendFetchResult> 
     return { draft, error: null };
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') {
-      return { draft: null, error: 'Scraper timed out.' };
+      return { draft: null, error: createImportError('scraper-timeout') };
     }
-    return { draft: null, error: 'Scraper unreachable.' };
+    return { draft: null, error: createImportError('scraper-unreachable') };
   } finally {
     window.clearTimeout(timeoutId);
   }
 };
 
-const parseRecipeFromUrl = async (url: string): Promise<ParsedRecipeDraft> => {
-  const sourceLabel = url;
-  const fallbackTitle = deriveTitleFromUrl(url);
-
+const parseRecipeFromUrl = async (url: string): Promise<RecipeImportResult> => {
   const backendResult = await fetchRecipeFromBackend(url);
   if (backendResult.draft) {
     if (
@@ -491,17 +595,19 @@ const parseRecipeFromUrl = async (url: string): Promise<ParsedRecipeDraft> => {
     ) {
       backendResult.draft.importWarning = backendResult.draft.importWarning ?? IMPORT_WARNING;
     }
-    return backendResult.draft;
+    return {
+      kind: 'draft',
+      draft: backendResult.draft
+    };
   }
 
-  const draft = baseDraft(sourceLabel, 'url');
-  draft.title = fallbackTitle;
-  draft.rawContent = url;
-  draft.importWarning = backendResult.error ?? IMPORT_WARNING;
-  return draft;
+  return {
+    kind: 'error',
+    error: backendResult.error ?? createImportError('scraper-unreachable')
+  };
 };
 
-export const parseRecipeImport = async (input: RecipeImportInput): Promise<ParsedRecipeDraft> => {
+export const parseRecipeImport = async (input: RecipeImportInput): Promise<RecipeImportResult> => {
   const file = input.file ?? null;
   const url = input.url?.trim() ?? '';
   const rawText = input.rawText?.trim() ?? '';
@@ -512,12 +618,24 @@ export const parseRecipeImport = async (input: RecipeImportInput): Promise<Parse
     const fallbackTitle = deriveTitleFromFile(fileName);
     try {
       const text = await extractPdfText(file);
-      return parseRecipeFromText(text, fallbackTitle, sourceLabel, 'pdf');
+      const draft = parseRecipeFromText(text, fallbackTitle, sourceLabel, 'pdf');
+      if (!draft.rawContent && draft.ingredients.length === 0 && draft.steps.length === 0) {
+        return {
+          kind: 'error',
+          error: createImportError('pdf-read-failed', {
+            message: 'No readable recipe content was found in the PDF. Try another file or create the recipe manually.'
+          })
+        };
+      }
+      return {
+        kind: 'draft',
+        draft
+      };
     } catch {
-      const draft = baseDraft(sourceLabel, 'pdf');
-      draft.title = fallbackTitle;
-      draft.rawContent = fileName ?? '';
-      return draft;
+      return {
+        kind: 'error',
+        error: createImportError('pdf-read-failed')
+      };
     }
   }
 
@@ -527,9 +645,14 @@ export const parseRecipeImport = async (input: RecipeImportInput): Promise<Parse
 
   if (rawText) {
     const sourceLabel = 'Manual';
-    return parseRecipeFromText(rawText, '', sourceLabel, 'manual');
+    return {
+      kind: 'draft',
+      draft: parseRecipeFromText(rawText, '', sourceLabel, 'manual')
+    };
   }
 
-  const empty = baseDraft('Manual', 'manual');
-  return empty;
+  return {
+    kind: 'error',
+    error: createImportError('invalid-input')
+  };
 };

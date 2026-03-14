@@ -180,6 +180,67 @@ textarea {
   font-size: 1.05rem;
 }
 
+.ingredient-editor-sheet {
+  display: grid;
+  gap: 12px;
+}
+
+.app-status-overlay {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(15, 23, 42, 0.18);
+  z-index: 95;
+}
+
+.app-status-card {
+  width: min(320px, 100%);
+  min-height: 140px;
+  padding: 20px 18px;
+  border: 1px solid var(--stroke);
+  border-radius: 20px;
+  background: var(--surface);
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.app-status-card h2,
+.app-status-card p {
+  margin: 0;
+}
+
+.app-status-card p {
+  color: var(--ink-soft);
+  line-height: 1.4;
+}
+
+.app-status-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.app-status-spinner {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 3px solid var(--stroke);
+  border-top-color: var(--accent);
+  animation: app-status-spin 900ms linear infinite;
+}
+
+@keyframes app-status-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .import-search-button {
   width: 100%;
   margin-bottom: 12px;
@@ -1092,11 +1153,20 @@ textarea {
   display: grid;
   align-content: start;
   gap: 10px;
-  padding: 4px 0 16px;
+  padding: 4px 0 calc(env(safe-area-inset-bottom) + 84px);
 }
 
-.deck-list.has-floating-add {
-  padding-bottom: calc(env(safe-area-inset-bottom) + 84px);
+.deck-grid {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  display: grid;
+  align-content: start;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 4px 0 calc(env(safe-area-inset-bottom) + 84px);
 }
 
 .deck-bottom-bar {
@@ -1105,7 +1175,7 @@ textarea {
   right: 12px;
   bottom: 0;
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   align-items: center;
   gap: 8px;
   padding: 0;
@@ -1113,6 +1183,18 @@ textarea {
   border: 0;
   box-shadow: none;
   z-index: 80;
+}
+
+.deck-mode-toggle {
+  width: 48px;
+  height: 48px;
+  border: 1px solid var(--stroke);
+  border-radius: 999px;
+  background: var(--surface);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-soft);
 }
 
 .deck-import-button {
@@ -1234,6 +1316,9 @@ textarea {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
+  max-height: calc((1.55em * 2) + 4px);
+  overflow: hidden;
+  align-content: flex-start;
 }
 
 .deck-list-tags span {
@@ -1252,15 +1337,112 @@ textarea {
   font-size: 0.76rem;
 }
 
-.deck-list-times {
-  display: grid;
-  justify-items: end;
-  gap: 4px;
-  min-width: 74px;
+.deck-list-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  align-items: center;
+  margin-top: auto;
   color: var(--ink-soft);
   font-size: 0.72rem;
-  text-align: right;
+}
+
+.deck-list-meta span {
   white-space: nowrap;
+}
+
+.deck-grid-card {
+  position: relative;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--stroke);
+  background: var(--surface);
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease,
+    background-color 120ms ease;
+}
+
+.deck-grid-card.is-selected {
+  border-color: var(--stroke-strong);
+  box-shadow: 0 0 0 1px var(--stroke-strong);
+}
+
+.deck-grid-card.is-editing {
+  border-color: rgb(221, 51, 103);
+  box-shadow: none;
+  outline: 1px solid rgb(221, 51, 103);
+  outline-offset: 0;
+}
+
+.deck-grid-card.is-editing .deck-grid-card-main {
+  animation: recipe-card-jiggle 0.2s ease-in-out infinite;
+  transform-origin: center;
+}
+
+.deck-grid-card-main {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  padding: 10px;
+  text-align: left;
+  touch-action: pan-y;
+}
+
+.deck-grid-card-main:active {
+  background: var(--bg);
+  border-radius: 10px;
+}
+
+.deck-grid-media-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.deck-grid-media {
+  aspect-ratio: 1 / 1;
+  width: 100%;
+  border-radius: 18px;
+  border: 1px solid var(--stroke);
+  background: var(--surface-soft);
+  overflow: hidden;
+}
+
+.deck-grid-media-image {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.deck-grid-image-button {
+  position: absolute;
+  inset: 0;
+  border-radius: 18px;
+  border: 1px dashed rgba(221, 51, 103, 0.5);
+  background: transparent;
+}
+
+.deck-grid-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.deck-grid-copy strong {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-height: 1.25;
+  font-size: 0.96rem;
+  font-weight: 600;
+}
+
+.deck-grid-date {
+  color: var(--ink-soft);
+  font-size: 0.76rem;
 }
 
 .import-fab {
@@ -1273,6 +1455,12 @@ textarea {
   align-items: center;
   justify-content: center;
   color: var(--ink);
+}
+
+@media (max-width: 460px) {
+  .deck-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .staging-shell {
@@ -1793,6 +1981,17 @@ textarea {
   background: conic-gradient(var(--ink) calc(var(--progress) * 1turn), var(--stroke) 0);
   display: inline-grid;
   place-items: center;
+}
+
+.timer-dial-large {
+  width: 64px;
+  height: 64px;
+  justify-self: center;
+}
+
+.timer-dial-large .timer-dial-inner {
+  width: 44px;
+  height: 44px;
 }
 
 .timer-dial-inner {

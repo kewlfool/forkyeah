@@ -1,7 +1,7 @@
 import { cpSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { defineConfig } from 'vitest/config';
 import { VitePWA } from 'vite-plugin-pwa';
 
 const normalizeBasePath = (value: string): string => (value.endsWith('/') ? value : `${value}/`);
@@ -44,6 +44,11 @@ export default defineConfig({
     proxy: {
       '/api': 'http://localhost:8787'
     }
+  },
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./src/test/setup.ts'],
+    globals: true
   },
   build: {
     outDir
@@ -94,7 +99,7 @@ export default defineConfig({
         navigateFallbackAllowlist
       },
       devOptions: {
-        enabled: true
+        enabled: false
       }
     })
   ]
