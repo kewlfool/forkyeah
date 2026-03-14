@@ -195,6 +195,11 @@ textarea {
   z-index: 95;
 }
 
+.app-status-overlay--splash {
+  padding: 0;
+  background: var(--surface);
+}
+
 .app-status-card {
   width: min(320px, 100%);
   min-height: 140px;
@@ -207,6 +212,40 @@ textarea {
   justify-items: center;
   gap: 10px;
   text-align: center;
+}
+
+.app-splash-screen {
+  width: 100%;
+  height: 100%;
+  padding: 24px;
+  background: var(--surface);
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 14px;
+  text-align: center;
+}
+
+.app-splash-logo {
+  width: min(240px, 64vw);
+  height: auto;
+  display: block;
+}
+
+.app-splash-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.app-splash-copy h1,
+.app-splash-copy p {
+  margin: 0;
+}
+
+.app-splash-copy h1 {
+  font-size: 0.96rem;
+  letter-spacing: 0.18em;
+  font-weight: 700;
 }
 
 .app-status-card h2,

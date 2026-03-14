@@ -90,6 +90,8 @@ const buildManualDraft = (): RecipeStagingDraft => ({
   rawContent: ''
 });
 
+const STARTUP_SPLASH_MIN_MS = 900;
+
 const areRecipeIdArraysEqual = (left: string[], right: string[]): boolean => {
   if (left.length !== right.length) {
     return false;
@@ -119,6 +121,8 @@ const AppContent = (): JSX.Element => {
   const appShellRef = useRef(appShellState);
   const initialDeckOrderRef = useRef<string[] | null>(null);
   const mountedRef = useRef(true);
+  const splashStartedAtRef = useRef(performance.now());
+  const startupOverlayTimerRef = useRef<number | null>(null);
   const parseSessionRef = useRef(0);
   const lastImportAttemptRef = useRef<ImportAttempt | null>(null);
   const handleExitDeckEditMode = useCallback(() => {
@@ -134,6 +138,9 @@ const AppContent = (): JSX.Element => {
   useEffect(() => {
     return () => {
       mountedRef.current = false;
+      if (startupOverlayTimerRef.current !== null) {
+        window.clearTimeout(startupOverlayTimerRef.current);
+      }
     };
   }, []);
 
@@ -204,7 +211,24 @@ const AppContent = (): JSX.Element => {
       return;
     }
 
-    dispatchAppShell({ type: 'clear-startup-overlay' });
+    const elapsedMs = performance.now() - splashStartedAtRef.current;
+    const remainingMs = Math.max(0, STARTUP_SPLASH_MIN_MS - elapsedMs);
+
+    if (startupOverlayTimerRef.current !== null) {
+      window.clearTimeout(startupOverlayTimerRef.current);
+    }
+
+    startupOverlayTimerRef.current = window.setTimeout(() => {
+      dispatchAppShell({ type: 'clear-startup-overlay' });
+      startupOverlayTimerRef.current = null;
+    }, remainingMs);
+
+    return () => {
+      if (startupOverlayTimerRef.current !== null) {
+        window.clearTimeout(startupOverlayTimerRef.current);
+        startupOverlayTimerRef.current = null;
+      }
+    };
   }, [homeHydrated, recipeHydrated]);
 
   useEffect(() => {
@@ -511,6 +535,7 @@ const AppContent = (): JSX.Element => {
 
       <AppStatusOverlay
         open={appShellState.overlay.type === 'status'}
+        kind={appShellState.overlay.type === 'status' ? appShellState.overlay.kind : undefined}
         tone={appShellState.overlay.type === 'status' && appShellState.overlay.kind === 'error' ? 'error' : 'loading'}
         title={appShellState.overlay.type === 'status' ? appShellState.overlay.title : ''}
         message={appShellState.overlay.type === 'status' ? appShellState.overlay.message : undefined}

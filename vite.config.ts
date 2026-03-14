@@ -65,9 +65,9 @@ export default defineConfig({
         'icons/apple-touch-icon.png'
       ],
       manifest: {
-        name: 'Forkyeah',
+        name: 'Forkyeah by Devious Design',
         short_name: 'Forkyeah',
-        description: 'A minimalist recipe manager designed for cooking',
+        description: 'A minimalist recipe manager by Devious Design, designed for importing, organizing, and cooking.',
         start_url: base,
         display: 'standalone',
         background_color: '#f6f5f1',
