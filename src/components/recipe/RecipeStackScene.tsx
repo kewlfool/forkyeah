@@ -37,6 +37,32 @@ interface ActivePointerGesture {
 
 const STACK_PREVIEW_LIMIT = 2;
 
+const collectPreviewCuisines = (recipe: Recipe): string[] => {
+  const seen = new Set<string>();
+  const cuisines: string[] = [];
+
+  for (const item of recipe.cuisines ?? []) {
+    const trimmed = item.trim();
+    if (!trimmed) {
+      continue;
+    }
+
+    const key = trimmed.toLowerCase();
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    cuisines.push(trimmed);
+
+    if (cuisines.length >= 2) {
+      break;
+    }
+  }
+
+  return cuisines;
+};
+
 const buildUniqueRecipeList = (recipes: Array<Recipe | null | undefined>, limit: number): Recipe[] => {
   const seen = new Set<string>();
   const ordered: Recipe[] = [];
@@ -66,6 +92,9 @@ const StackPreviewCard = ({
   depth: number;
   active?: boolean;
 }): JSX.Element => {
+  const previewIngredients = recipe.ingredients.slice(0, 2);
+  const previewCuisines = collectPreviewCuisines(recipe);
+
   return (
     <div
       className={`recipe-stack-preview ${active ? 'is-active-preview' : ''} ${recipe.imageUrl ? 'has-image' : 'no-image'}`}
@@ -76,12 +105,29 @@ const StackPreviewCard = ({
       }}
       aria-hidden="true"
     >
-      <div className="recipe-stack-preview-media">
-        {recipe.imageUrl ? <img src={recipe.imageUrl} alt="" className="recipe-stack-preview-image" /> : null}
-      </div>
-      <div className="recipe-stack-preview-copy">
-        <strong>{recipe.title || 'Untitled recipe'}</strong>
-        <span>Last cooked: {formatCookedDate(recipe.lastCooked)}</span>
+      <div className="recipe-stack-preview-card">
+        <div className="recipe-stack-preview-media">
+          {recipe.imageUrl ? <img src={recipe.imageUrl} alt="" className="recipe-stack-preview-image" /> : null}
+        </div>
+
+        <div className="recipe-stack-preview-copy">
+          <strong>{recipe.title || 'Untitled recipe'}</strong>
+          {previewCuisines.length ? (
+            <div className="recipe-stack-preview-cuisines">
+              {previewCuisines.map((cuisine) => (
+                <span key={cuisine}>{cuisine}</span>
+              ))}
+            </div>
+          ) : null}
+          <span>Last cooked: {formatCookedDate(recipe.lastCooked)}</span>
+          {previewIngredients.length ? (
+            <ul className="recipe-stack-preview-ingredients">
+              {previewIngredients.map((ingredient, index) => (
+                <li key={`${ingredient}-${index}`}>{ingredient}</li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
       </div>
     </div>
   );

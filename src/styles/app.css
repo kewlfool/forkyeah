@@ -1346,10 +1346,7 @@ textarea {
 .recipe-stack-preview {
   z-index: 1;
   pointer-events: none;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  padding: 16px;
+  padding: 18px;
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.05);
 }
 
@@ -1357,10 +1354,21 @@ textarea {
   border-color: var(--stroke-strong);
 }
 
+.recipe-stack-preview-card {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  height: 100%;
+}
+
 .recipe-stack-preview-media {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.04), rgba(15, 23, 42, 0.18));
+  position: relative;
+  width: 100%;
+  height: 148px;
+  border-radius: 18px;
+  border: 1px solid var(--stroke);
+  background: linear-gradient(180deg, var(--surface-soft), rgba(15, 23, 42, 0.08));
+  overflow: hidden;
 }
 
 .recipe-stack-preview.no-image .recipe-stack-preview-media {
@@ -1372,34 +1380,52 @@ textarea {
   height: 100%;
   display: block;
   object-fit: cover;
+  opacity: 0.92;
 }
 
 .recipe-stack-preview-copy {
-  position: relative;
-  z-index: 1;
   display: grid;
   gap: 6px;
-  padding-top: 80px;
-}
-
-.recipe-stack-preview-copy strong,
-.recipe-stack-preview-copy span {
-  color: #fff;
-  text-shadow: 0 1px 8px rgba(15, 23, 42, 0.45);
-}
-
-.recipe-stack-preview.no-image .recipe-stack-preview-copy strong,
-.recipe-stack-preview.no-image .recipe-stack-preview-copy span {
-  color: var(--ink);
-  text-shadow: none;
+  align-content: start;
 }
 
 .recipe-stack-preview-copy strong {
   font-size: 0.98rem;
+  color: var(--ink);
 }
 
 .recipe-stack-preview-copy span {
   font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+
+.recipe-stack-preview-cuisines {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-height: 56px;
+  overflow: hidden;
+}
+
+.recipe-stack-preview-cuisines span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--stroke);
+  background: var(--surface-soft);
+  font-size: 0.72rem;
+  color: var(--ink);
+}
+
+.recipe-stack-preview-ingredients {
+  margin: 2px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 5px;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
 }
 
 .recipe-stack-empty {
@@ -2258,6 +2284,109 @@ textarea {
   height: 10px;
   border-radius: 999px;
   background: var(--surface);
+}
+
+.cook-mode-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 24;
+  background: color-mix(in srgb, var(--bg) 94%, var(--surface-soft) 6%);
+}
+
+.cook-mode-chrome {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  height: 100%;
+  padding: 16px 14px calc(env(safe-area-inset-bottom) + 16px);
+  gap: 14px;
+}
+
+.cook-mode-progress {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+
+.cook-mode-step-count {
+  font-size: 0.84rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+}
+
+.cook-mode-progress-bar {
+  width: min(220px, 52vw);
+  height: 4px;
+  border-radius: 999px;
+  background: var(--stroke);
+  overflow: hidden;
+}
+
+.cook-mode-progress-bar-fill {
+  width: 100%;
+  height: 100%;
+  display: block;
+  transform-origin: left center;
+  border-radius: inherit;
+  background: var(--ink);
+  transition: transform 180ms ease;
+}
+
+.cook-mode-step-shell {
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  touch-action: pan-x;
+}
+
+.cook-mode-step-stage {
+  width: 100%;
+  height: min(80dvh, calc(100dvh - 180px));
+  padding: clamp(12px, 2vw, 18px);
+}
+
+.cook-mode-step-fitbox {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  text-align: center;
+}
+
+.cook-mode-step-text {
+  margin: 0;
+  max-width: 100%;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  font-weight: 600;
+  color: var(--ink);
+  text-wrap: balance;
+}
+
+.cook-mode-empty {
+  margin: 0;
+  text-align: center;
+  font-size: 1rem;
+}
+
+.cook-mode-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  align-items: end;
+  justify-items: center;
+}
+
+.cook-mode-action-button {
+  width: 48px;
+  height: 48px;
+  padding: 0;
+}
+
+.cook-mode-action-button-primary {
+  color: var(--ink);
+  border-color: var(--stroke-strong);
 }
 
 .recipe-cooked-button {

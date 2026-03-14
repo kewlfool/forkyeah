@@ -1,10 +1,12 @@
 import { type CSSProperties } from 'react';
+import { useHorizontalSwipe } from '../../hooks/useHorizontalSwipe';
 import type { RecipePeekPanel } from './recipeScreenState';
 
 interface RecipePeekSheetProps {
   panel: RecipePeekPanel | null;
   ingredientItems: string[];
   ingredientDone: boolean[];
+  enableIngredientToggle?: boolean;
   notes: string;
   nutrientItems: string[];
   timerMinutes: number;
@@ -13,15 +15,55 @@ interface RecipePeekSheetProps {
   remainingDisplaySeconds: number;
   timerProgress: number;
   onClose: () => void;
+  onToggleIngredientDone?: (index: number) => void;
   onTimerMinutesChange: (value: number) => void;
   onStartTimer: () => void;
   onStopTimer: () => void;
 }
 
+interface PeekIngredientItemProps {
+  item: string;
+  index: number;
+  isDone: boolean;
+  enableToggle: boolean;
+  onToggle?: (index: number) => void;
+}
+
+const PeekIngredientItem = ({
+  item,
+  index,
+  isDone,
+  enableToggle,
+  onToggle
+}: PeekIngredientItemProps): JSX.Element => {
+  const swipe = useHorizontalSwipe({
+    onSwipeRight: () => {
+      if (enableToggle) {
+        onToggle?.(index);
+      }
+    },
+    threshold: 44,
+    disabled: !enableToggle
+  });
+
+  return (
+    <li
+      className={isDone ? 'is-done' : undefined}
+      onTouchStart={swipe.onTouchStart}
+      onTouchMove={swipe.onTouchMove}
+      onTouchEnd={swipe.onTouchEnd}
+      onTouchCancel={swipe.onTouchCancel}
+    >
+      {item}
+    </li>
+  );
+};
+
 export const RecipePeekSheet = ({
   panel,
   ingredientItems,
   ingredientDone,
+  enableIngredientToggle = false,
   notes,
   nutrientItems,
   timerMinutes,
@@ -30,6 +72,7 @@ export const RecipePeekSheet = ({
   remainingDisplaySeconds,
   timerProgress,
   onClose,
+  onToggleIngredientDone,
   onTimerMinutesChange,
   onStartTimer,
   onStopTimer
@@ -52,9 +95,14 @@ export const RecipePeekSheet = ({
             {ingredientItems.length ? (
               <ul className="recipe-peek-list">
                 {ingredientItems.map((item, index) => (
-                  <li key={`${item}-${index}`} className={ingredientDone[index] ? 'is-done' : undefined}>
-                    {item}
-                  </li>
+                  <PeekIngredientItem
+                    key={`${item}-${index}`}
+                    item={item}
+                    index={index}
+                    isDone={ingredientDone[index]}
+                    enableToggle={enableIngredientToggle}
+                    onToggle={onToggleIngredientDone}
+                  />
                 ))}
               </ul>
             ) : (

@@ -8,6 +8,7 @@ import { useRecipeStore, type RecipeInput } from '../../store/useRecipeStore';
 import type { Recipe } from '../../types/models';
 import { IngredientEditorSheet } from './IngredientEditorSheet';
 import { RecipeArticleLayout } from './RecipeArticleLayout';
+import { RecipeCookMode } from './RecipeCookMode';
 import { RecipeIngredientList } from './RecipeIngredientList';
 import { RecipePeekSheet } from './RecipePeekSheet';
 import {
@@ -193,6 +194,14 @@ export const RecipeScreen = ({ recipe, onClose }: RecipeScreenProps): JSX.Elemen
     dispatchUi({ type: 'set-peek-panel', panel });
   };
 
+  const openCookMode = () => {
+    if (!recipe.steps.length) {
+      return;
+    }
+
+    dispatchUi({ type: 'open-cook-mode' });
+  };
+
   return (
     <motion.section
       className="recipe-shell screen-layer"
@@ -230,6 +239,7 @@ export const RecipeScreen = ({ recipe, onClose }: RecipeScreenProps): JSX.Elemen
             type="button"
             className="recipe-title-meta recipe-cooked-button"
             onClick={() => {
+              dispatchUi({ type: 'reset-progress' });
               updateRecipe(recipe.id, buildRecipeInput({ lastCooked: Date.now() }));
             }}
             aria-label="Update last cooked date"
@@ -296,7 +306,13 @@ export const RecipeScreen = ({ recipe, onClose }: RecipeScreenProps): JSX.Elemen
             >
               <Leaf size={navIconSize} />
             </button>
-            <button type="button" className="recipe-nav-icon recipe-nav-spacer" aria-label="Cook mode">
+            <button
+              type="button"
+              className={`recipe-nav-icon recipe-nav-spacer ${uiState.cookModeOpen ? 'is-active' : ''}`}
+              aria-label="Cook mode"
+              onClick={openCookMode}
+              disabled={!recipe.steps.length}
+            >
               <ChefHat size={navIconSize} />
             </button>
             <button
@@ -321,6 +337,7 @@ export const RecipeScreen = ({ recipe, onClose }: RecipeScreenProps): JSX.Elemen
         panel={uiState.peekPanel}
         ingredientItems={recipe.ingredients}
         ingredientDone={uiState.ingredientDone}
+        enableIngredientToggle={uiState.cookModeOpen}
         notes={recipe.notes}
         nutrientItems={recipe.nutrients}
         timerMinutes={uiState.timerMinutes}
@@ -329,9 +346,23 @@ export const RecipeScreen = ({ recipe, onClose }: RecipeScreenProps): JSX.Elemen
         remainingDisplaySeconds={remainingDisplaySeconds}
         timerProgress={timerProgress}
         onClose={() => dispatchUi({ type: 'set-peek-panel', panel: null })}
+        onToggleIngredientDone={(index) => dispatchUi({ type: 'toggle-ingredient-done', index })}
         onTimerMinutesChange={(value) => dispatchUi({ type: 'set-timer-minutes', minutes: value })}
         onStartTimer={() => dispatchUi({ type: 'start-timer', now: Date.now() })}
         onStopTimer={() => dispatchUi({ type: 'stop-timer' })}
+      />
+
+      <RecipeCookMode
+        open={uiState.cookModeOpen}
+        steps={recipe.steps}
+        stepIndex={uiState.cookStepIndex}
+        timerEndsAt={uiState.timerEndsAt}
+        timerProgress={timerProgress}
+        onPreviousStep={() => dispatchUi({ type: 'go-to-previous-cook-step' })}
+        onNextStep={() => dispatchUi({ type: 'go-to-next-cook-step', count: recipe.steps.length })}
+        onOpenIngredients={() => openPeekPanel('ingredients')}
+        onOpenTimer={() => openPeekPanel('timer')}
+        onClose={() => dispatchUi({ type: 'close-cook-mode' })}
       />
 
       <IngredientEditorSheet
