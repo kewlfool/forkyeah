@@ -46,22 +46,15 @@ h1 {
 }
 
 .image {
-  text-align: center;
-  margin: 0;
+  margin: 0 0 30px;
 }
 
 .image img {
   max-width: 100%;
-  max-height: 260px;
+  width: 100%;
+  max-height: 320px;
+  object-fit: cover;
   border-radius: 6px;
-}
-
-.hero-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
-  gap: 28px;
-  align-items: start;
-  margin-bottom: 30px;
 }
 
 .time-grid {
@@ -107,15 +100,6 @@ h1 {
   column-gap: 40px;
 }
 
-.ingredients-panel .section {
-  margin-top: 0;
-}
-
-.ingredients-panel .ingredients {
-  columns: 1;
-  column-gap: 0;
-}
-
 .ingredients li {
   margin-bottom: 6px;
   break-inside: avoid;
@@ -156,8 +140,8 @@ h1 {
 }
 
 @media (max-width: 720px) {
-  .hero-grid {
-    grid-template-columns: 1fr;
+  .ingredients {
+    columns: 1;
   }
 }
 </style>
@@ -187,17 +171,13 @@ h1 {
   </div>
 </div>
 
-<div class="hero-grid">
-  {{imageBlock}}
+{{imageBlock}}
 
-  <div class="ingredients-panel">
-    <div class="section">
-      <h2>Ingredients</h2>
-      <ul class="ingredients">
+<div class="section">
+  <h2>Ingredients</h2>
+  <ul class="ingredients">
 {{ingredients}}
-      </ul>
-    </div>
-  </div>
+  </ul>
 </div>
 
 <div class="section">

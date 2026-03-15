@@ -1,11 +1,9 @@
 import { AnimatePresence, motion } from 'framer-motion';
+import { Check } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 
 export interface RecipeImportPayload {
   url: string;
-  rawText: string;
-  file: File | null;
-  fileName: string | null;
 }
 
 interface RecipeImportSheetProps {
@@ -24,11 +22,7 @@ export const RecipeImportSheet = ({
   onOpenSearch
 }: RecipeImportSheetProps): JSX.Element => {
   const [url, setUrl] = useState('');
-  const [rawText, setRawText] = useState('');
-  const [fileName, setFileName] = useState<string | null>(null);
-  const [file, setFile] = useState<File | null>(null);
   const urlInputRef = useRef<HTMLInputElement | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!open) {
@@ -40,7 +34,11 @@ export const RecipeImportSheet = ({
     });
   }, [open]);
 
-  const hasImportSource = Boolean(url.trim() || rawText.trim() || file);
+  const hasImportSource = Boolean(url.trim());
+
+  const reset = () => {
+    setUrl('');
+  };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -49,18 +47,9 @@ export const RecipeImportSheet = ({
     }
 
     onContinue({
-      url: url.trim(),
-      rawText: rawText.trim(),
-      file,
-      fileName
+      url: url.trim()
     });
-    setUrl('');
-    setRawText('');
-    setFile(null);
-    setFileName(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    reset();
   };
 
   return (
@@ -81,26 +70,9 @@ export const RecipeImportSheet = ({
             transition={{ type: 'spring', stiffness: 260, damping: 24 }}
             onClick={(event) => event.stopPropagation()}
           >
-            <h2>Import recipe</h2>
-            <button
-              type="button"
-              className="ghost-button import-search-button"
-              onClick={() => {
-                setUrl('');
-                setRawText('');
-                setFile(null);
-                setFileName(null);
-                if (fileInputRef.current) {
-                  fileInputRef.current.value = '';
-                }
-                onOpenSearch();
-              }}
-            >
-              Search recipes
-            </button>
+            <h2>Fork a Recipe</h2>
             <form onSubmit={handleSubmit} className="stack-12" autoComplete="off">
-              <label className="form-field">
-                <span className="field-label">Recipe link</span>
+              <div className="import-url-row">
                 <input
                   ref={urlInputRef}
                   type="url"
@@ -114,55 +86,46 @@ export const RecipeImportSheet = ({
                   data-form-type="other"
                   value={url}
                   onChange={(event) => setUrl(event.target.value)}
-                  className="list-input"
+                  className="list-input import-url-input"
                   placeholder="Paste a recipe URL"
                 />
-              </label>
-
-              <label className="form-field">
-                <span className="field-label">PDF recipe</span>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="application/pdf"
-                  className="list-input"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    setFile(file ?? null);
-                    setFileName(file ? file.name : null);
-                  }}
-                />
-                {fileName ? <small className="muted">Selected: {fileName}</small> : null}
-              </label>
-
-              <p className="muted import-note">Paste a link or PDF, or create from scratch below.</p>
-
-              <div className="modal-actions">
-                <button type="button" className="ghost-button" onClick={onClose}>
-                  Cancel
-                </button>
-                <button type="submit" className="solid-button" disabled={!hasImportSource}>
-                  Continue
+                <button
+                  type="submit"
+                  className="solid-button import-submit-button"
+                  aria-label="Import recipe"
+                  disabled={!hasImportSource}
+                >
+                  <Check size={18} />
                 </button>
               </div>
-            </form>
 
-            <button
-              type="button"
-              className="solid-button create-recipe-button"
-              onClick={() => {
-                onCreateManual();
-                setUrl('');
-                setRawText('');
-                setFile(null);
-                setFileName(null);
-                if (fileInputRef.current) {
-                  fileInputRef.current.value = '';
-                }
-              }}
-            >
-              Create your recipe
-            </button>
+              <div className="import-shortcuts">
+                <button
+                  type="button"
+                  className="ghost-button"
+                  onClick={() => {
+                    reset();
+                    onOpenSearch();
+                  }}
+                >
+                  Search
+                </button>
+
+                <button
+                  type="button"
+                  className="solid-button"
+                  onClick={() => {
+                    onCreateManual();
+                    reset();
+                  }}
+                >
+                  Create
+                </button>
+              </div>
+
+              <div className="modal-actions import-sheet-actions">
+              </div>
+            </form>
           </motion.div>
         </motion.div>
       ) : null}

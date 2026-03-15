@@ -322,12 +322,12 @@ const AppContent = (): JSX.Element => {
   );
 
   const handleImportContinue = async (payload: RecipeImportPayload) => {
-    const hasImportSource = Boolean(payload.url.trim() || payload.rawText.trim() || payload.file);
+    const hasImportSource = Boolean(payload.url.trim());
     if (!hasImportSource) {
       dispatchAppShell({
         type: 'show-error-overlay',
         title: 'Invalid import',
-        message: 'Add a recipe link, PDF, or text before continuing.',
+        message: 'Add a recipe link before continuing.',
         actions: [{ id: 'close', label: 'Close' }]
       });
       return;
@@ -336,10 +336,7 @@ const AppContent = (): JSX.Element => {
     await runImportAttempt({
       source: 'sheet',
       input: {
-        url: payload.url,
-        rawText: payload.rawText,
-        file: payload.file,
-        fileName: payload.fileName
+        url: payload.url
       }
     });
   };

@@ -37,8 +37,11 @@ body,
 #root {
   margin: 0;
   width: 100%;
-  height: 100%;
-  min-height: 100%;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 100vh;
+  min-height: 100dvh;
+  max-height: 100dvh;
   overflow: hidden;
   overscroll-behavior: none;
   background-color: var(--bg);
@@ -278,11 +281,6 @@ textarea {
   to {
     transform: rotate(360deg);
   }
-}
-
-.import-search-button {
-  width: 100%;
-  margin-bottom: 12px;
 }
 
 .stack-12 {
@@ -763,6 +761,36 @@ textarea {
 
 .import-note {
   font-size: 0.75rem;
+}
+
+.import-url-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.import-url-input {
+  min-width: 0;
+}
+
+.import-submit-button {
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.import-shortcuts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.import-sheet-actions {
+  display: none;
 }
 
 .task-list {

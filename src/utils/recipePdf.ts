@@ -1,6 +1,5 @@
 import recipeExportTemplate from '../../recipe export temp.html?raw';
 import type { Recipe } from '../types/models';
-import { formatCookedDate } from './recipes';
 
 const escapeHtml = (value: string): string =>
   value
@@ -118,7 +117,6 @@ export const exportRecipeToPdf = (recipe: Recipe): void => {
       documentTitle: escapeHtml(title),
       title: escapeHtml(title),
       descriptionBlock: renderDescriptionBlock(recipe.description ?? ''),
-      lastCooked: escapeHtml(formatCookedDate(recipe.lastCooked)),
       tagsBlock: renderTagsBlock(recipe.tags ?? []),
       imageBlock: renderImageBlock(title, recipe.imageUrl),
       prepTime: escapeHtml(recipe.prepTime?.trim() || '—'),

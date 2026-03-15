@@ -70,7 +70,7 @@ export default defineConfig({
         description: 'A minimalist recipe manager by Devious Design, designed for importing, organizing, and cooking.',
         start_url: base,
         display: 'standalone',
-        background_color: '#f6f5f1',
+        background_color: '#eef2f6',
         theme_color: '#1a1a1a',
         orientation: 'portrait',
         icons: [
