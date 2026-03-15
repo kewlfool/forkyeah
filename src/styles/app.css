@@ -47,6 +47,12 @@ body,
   background-color: var(--bg);
 }
 
+html[data-overlay-active='true'],
+html[data-overlay-active='true'] body,
+html[data-overlay-active='true'] #root {
+  background-color: var(--document-overlay-bg, var(--bg));
+}
+
 body {
   font-family: 'Avenir Next', 'SF Pro Text', 'Nunito Sans', sans-serif;
   background: var(--bg);
@@ -171,11 +177,21 @@ textarea {
   z-index: 90;
 }
 
+.modal-backdrop--bottom-sheet {
+  padding: 12px 12px calc(env(safe-area-inset-bottom) + 30px);
+}
+
 .modal-sheet {
   width: min(520px, 100%);
   background: var(--surface);
   border-radius: var(--radius);
   padding: 16px;
+}
+
+.modal-sheet--bottom {
+  width: min(540px, calc(100vw - 24px));
+  border-radius: 24px;
+  padding: 18px 16px 16px;
 }
 
 .modal-sheet h2 {
@@ -2272,7 +2288,7 @@ textarea {
   display: grid;
   place-items: center;
   z-index: 30;
-  padding: 18px;
+  padding: 18px 18px calc(env(safe-area-inset-bottom) + 18px);
 }
 
 .recipe-peek-card {
@@ -2372,6 +2388,7 @@ textarea {
   display: grid;
   justify-items: center;
   gap: 8px;
+  padding-top: 35px;
 }
 
 .cook-mode-step-count {
@@ -2468,11 +2485,13 @@ textarea {
   flex-direction: column;
   gap: 12px;
   background: var(--bg);
+  padding-bottom: calc(env(safe-area-inset-bottom) + 12px);
 }
 
 .search-header {
   display: grid;
   gap: 10px;
+  flex: 0 0 auto;
 }
 
 .search-header h2 {
@@ -2485,6 +2504,24 @@ textarea {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 10px;
   align-items: center;
+}
+
+.search-form.is-centered {
+  margin: auto 0;
+}
+
+.search-form.is-floating {
+  position: fixed;
+  left: calc((100vw - min(540px, 100vw)) / 2 + 12px + env(safe-area-inset-left));
+  right: calc((100vw - min(540px, 100vw)) / 2 + 12px + env(safe-area-inset-right));
+  bottom: calc(env(safe-area-inset-bottom) + 18px);
+  z-index: 12;
+  padding: 10px;
+  border: 1px solid var(--stroke);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface) 94%, white 6%);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(10px);
 }
 
 .search-input {
@@ -2515,6 +2552,14 @@ textarea {
   display: grid;
   gap: 12px;
   padding-bottom: 20px;
+}
+
+.search-shell.is-empty .search-results {
+  display: none;
+}
+
+.search-shell.has-results .search-results {
+  padding-bottom: calc(env(safe-area-inset-bottom) + 92px);
 }
 
 .search-result-card {

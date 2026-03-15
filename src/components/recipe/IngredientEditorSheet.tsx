@@ -1,5 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import { useDocumentOverlayPresence } from '../../hooks/useDocumentOverlayPresence';
 
 interface IngredientEditorSheetProps {
   open: boolean;
@@ -16,6 +18,7 @@ export const IngredientEditorSheet = ({
   onClose,
   onSave
 }: IngredientEditorSheetProps): JSX.Element => {
+  const SHEET_DOCUMENT_BG = 'color-mix(in srgb, var(--bg) 82%, rgb(31 41 55) 18%)';
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -29,9 +32,11 @@ export const IngredientEditorSheet = ({
     });
   }, [open]);
 
+  useDocumentOverlayPresence(open, SHEET_DOCUMENT_BG);
+
   const canSave = Boolean(value.trim());
 
-  return (
+  const sheet = (
     <AnimatePresence>
       {open ? (
         <motion.div
@@ -80,4 +85,6 @@ export const IngredientEditorSheet = ({
       ) : null}
     </AnimatePresence>
   );
+
+  return typeof document !== 'undefined' ? createPortal(sheet, document.body) : sheet;
 };

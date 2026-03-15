@@ -1,4 +1,6 @@
 import { type CSSProperties } from 'react';
+import { createPortal } from 'react-dom';
+import { useDocumentOverlayPresence } from '../../hooks/useDocumentOverlayPresence';
 import { useHorizontalSwipe } from '../../hooks/useHorizontalSwipe';
 import type { RecipePeekPanel } from './recipeScreenState';
 
@@ -77,11 +79,14 @@ export const RecipePeekSheet = ({
   onStartTimer,
   onStopTimer
 }: RecipePeekSheetProps): JSX.Element | null => {
+  const PEEK_DOCUMENT_BG = 'color-mix(in srgb, var(--bg) 80%, rgb(15 15 15) 20%)';
+  useDocumentOverlayPresence(Boolean(panel), PEEK_DOCUMENT_BG);
+
   if (!panel) {
     return null;
   }
 
-  return (
+  const sheet = (
     <div className="recipe-peek-overlay" onClick={onClose}>
       <div
         className="recipe-peek-card"
@@ -183,4 +188,6 @@ export const RecipePeekSheet = ({
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(sheet, document.body) : sheet;
 };

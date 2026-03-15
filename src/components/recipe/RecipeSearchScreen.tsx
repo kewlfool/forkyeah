@@ -101,26 +101,28 @@ export const RecipeSearchScreen = ({
     const pendingQuery = inputValue.trim();
 
     if (!activeQuery && !pendingQuery) {
-      return 'Type a search and press Search.';
+      return '';
     }
     if (pendingQuery && pendingQuery !== activeQuery) {
-      return 'Press Search to update results.';
+      return '';
     }
     if (status === 'loading') {
-      return 'Searching…';
+      return '';
     }
     if (status === 'error') {
       return 'Search failed. Try again.';
     }
     if (!results.length) {
-      return 'No results yet.';
+      return '';
     }
     return '';
   }, [inputValue, query, results.length, status]);
 
+  const hasResults = results.length > 0;
+
   return (
     <motion.section
-      className="search-shell screen-layer"
+      className={`search-shell screen-layer ${hasResults ? 'has-results' : 'is-empty'}`}
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 12 }}
@@ -131,7 +133,7 @@ export const RecipeSearchScreen = ({
     >
       <header className="search-header">
         <h2>Search recipes</h2>
-        <form className="search-form" onSubmit={handleSubmit}>
+        <form className={`search-form ${hasResults ? 'is-floating' : 'is-centered'}`} onSubmit={handleSubmit}>
           <input
             ref={inputRef}
             type="search"

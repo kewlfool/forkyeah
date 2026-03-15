@@ -7,6 +7,8 @@ import {
   useState,
   type CSSProperties
 } from 'react';
+import { createPortal } from 'react-dom';
+import { useDocumentOverlayPresence } from '../../hooks/useDocumentOverlayPresence';
 import { useHorizontalSwipe } from '../../hooks/useHorizontalSwipe';
 
 interface RecipeCookModeProps {
@@ -88,6 +90,9 @@ export const RecipeCookMode = ({
   onOpenTimer,
   onClose
 }: RecipeCookModeProps): JSX.Element => {
+  const COOK_MODE_DOCUMENT_BG = 'color-mix(in srgb, var(--bg) 94%, var(--surface-soft) 6%)';
+  useDocumentOverlayPresence(open, COOK_MODE_DOCUMENT_BG);
+
   const hasSteps = steps.length > 0;
   const currentStep = hasSteps ? steps[stepIndex] ?? steps[0] ?? '' : '';
   const stepProgress = hasSteps ? (stepIndex + 1) / steps.length : 0;
@@ -114,7 +119,7 @@ export const RecipeCookMode = ({
     return `Step ${stepIndex + 1} of ${steps.length}`;
   }, [hasSteps, stepIndex, steps.length]);
 
-  return (
+  const overlay = (
     <AnimatePresence>
       {open ? (
         <motion.div
@@ -200,4 +205,6 @@ export const RecipeCookMode = ({
       ) : null}
     </AnimatePresence>
   );
+
+  return typeof document !== 'undefined' ? createPortal(overlay, document.body) : overlay;
 };

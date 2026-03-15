@@ -1,6 +1,8 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { Check } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { createPortal } from 'react-dom';
+import { useDocumentOverlayPresence } from '../../hooks/useDocumentOverlayPresence';
 
 export interface RecipeImportPayload {
   url: string;
@@ -21,6 +23,7 @@ export const RecipeImportSheet = ({
   onCreateManual,
   onOpenSearch
 }: RecipeImportSheetProps): JSX.Element => {
+  const IMPORT_SHEET_DOCUMENT_BG = 'color-mix(in srgb, var(--bg) 82%, rgb(31 41 55) 18%)';
   const [url, setUrl] = useState('');
   const urlInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -33,6 +36,8 @@ export const RecipeImportSheet = ({
       urlInputRef.current?.focus();
     });
   }, [open]);
+
+  useDocumentOverlayPresence(open, IMPORT_SHEET_DOCUMENT_BG);
 
   const hasImportSource = Boolean(url.trim());
 
@@ -52,18 +57,18 @@ export const RecipeImportSheet = ({
     reset();
   };
 
-  return (
+  const sheet = (
     <AnimatePresence>
       {open ? (
         <motion.div
-          className="modal-backdrop"
+          className="modal-backdrop modal-backdrop--bottom-sheet"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
         >
           <motion.div
-            className="modal-sheet"
+            className="modal-sheet modal-sheet--bottom"
             initial={{ y: 42, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 32, opacity: 0 }}
@@ -131,4 +136,6 @@ export const RecipeImportSheet = ({
       ) : null}
     </AnimatePresence>
   );
+
+  return typeof document !== 'undefined' ? createPortal(sheet, document.body) : sheet;
 };
