@@ -1522,7 +1522,7 @@ textarea {
   position: absolute;
   left: 12px;
   right: 12px;
-  bottom: 0;
+  bottom: calc(env(safe-area-inset-bottom) + 35px);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1535,8 +1535,8 @@ textarea {
 }
 
 .deck-mode-toggle {
-  width: 48px;
-  height: 48px;
+  width: 56px;
+  height: 56px;
   border: 1px solid var(--stroke);
   border-radius: 999px;
   background: var(--surface);
@@ -2103,11 +2103,17 @@ textarea {
   padding: 6px;
   border-radius: var(--radius);
   border: 1px solid var(--stroke);
-  background: var(--surface);
+  background: color-mix(in srgb, var(--surface) 94%, white 6%);
   margin-top: 8px;
   position: sticky;
-  bottom: 0;
-  z-index: 5;
+  bottom: calc(env(safe-area-inset-bottom) + 35px);
+  z-index: 12;
+  width: fit-content;
+  max-width: calc(100% - 24px);
+  margin-left: auto;
+  margin-right: auto;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(10px);
 }
 
 .recipe-nav button {
