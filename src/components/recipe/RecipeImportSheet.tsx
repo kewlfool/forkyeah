@@ -1,5 +1,4 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { Check } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useDocumentOverlayPresence } from '../../hooks/useDocumentOverlayPresence';
@@ -47,13 +46,15 @@ export const RecipeImportSheet = ({
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!hasImportSource) {
+    if (hasImportSource) {
+      onContinue({
+        url: url.trim()
+      });
+      reset();
       return;
     }
 
-    onContinue({
-      url: url.trim()
-    });
+    onCreateManual();
     reset();
   };
 
@@ -94,14 +95,6 @@ export const RecipeImportSheet = ({
                   className="list-input import-url-input"
                   placeholder="Paste a recipe URL"
                 />
-                <button
-                  type="submit"
-                  className="solid-button import-submit-button"
-                  aria-label="Import recipe"
-                  disabled={!hasImportSource}
-                >
-                  <Check size={18} />
-                </button>
               </div>
 
               <div className="import-shortcuts">
@@ -117,12 +110,8 @@ export const RecipeImportSheet = ({
                 </button>
 
                 <button
-                  type="button"
+                  type="submit"
                   className="solid-button"
-                  onClick={() => {
-                    onCreateManual();
-                    reset();
-                  }}
                 >
                   Create
                 </button>

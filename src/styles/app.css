@@ -781,22 +781,12 @@ textarea {
 
 .import-url-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
 }
 
 .import-url-input {
   min-width: 0;
-}
-
-.import-submit-button {
-  width: 46px;
-  height: 46px;
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .import-shortcuts {
