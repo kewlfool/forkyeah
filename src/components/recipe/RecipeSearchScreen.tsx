@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from 'react';
+import { useKeyboardInset } from '../../hooks/useKeyboardInset';
 import { usePinchToClose } from '../../hooks/usePinchToClose';
 import { searchRecipes, type RecipeSearchResult } from '../../utils/recipeSearch';
 
@@ -18,10 +19,12 @@ export const RecipeSearchScreen = ({
 }: RecipeSearchScreenProps): JSX.Element => {
   const [inputValue, setInputValue] = useState(query);
   const [results, setResults] = useState<RecipeSearchResult[]>([]);
+  const [executedQuery, setExecutedQuery] = useState(query.trim());
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const inputRef = useRef<HTMLInputElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const lastExecutedQueryRef = useRef('');
+  const keyboardInset = useKeyboardInset();
 
   const pinch = usePinchToClose({
     onPinchOut: onClose,
@@ -41,6 +44,7 @@ export const RecipeSearchScreen = ({
 
     if (trimmed.length < 2) {
       lastExecutedQueryRef.current = '';
+      setExecutedQuery('');
       setResults([]);
       setStatus('idle');
       return;
@@ -49,6 +53,7 @@ export const RecipeSearchScreen = ({
     const controller = new AbortController();
     abortRef.current = controller;
     lastExecutedQueryRef.current = trimmed;
+    setExecutedQuery(trimmed);
     setStatus('loading');
 
     void searchRecipes(trimmed, 10, controller.signal)
@@ -77,6 +82,7 @@ export const RecipeSearchScreen = ({
 
     if (!query.trim()) {
       lastExecutedQueryRef.current = '';
+      setExecutedQuery('');
       setResults([]);
       setStatus('idle');
     }
@@ -96,36 +102,37 @@ export const RecipeSearchScreen = ({
     runSearch(trimmed);
   };
 
-  const resultsLabel = useMemo(() => {
-    const activeQuery = query.trim();
-    const pendingQuery = inputValue.trim();
+  const statusMessage = useMemo(() => {
+    if (!executedQuery) {
+      return '';
+    }
 
-    if (!activeQuery && !pendingQuery) {
-      return '';
-    }
-    if (pendingQuery && pendingQuery !== activeQuery) {
-      return '';
-    }
     if (status === 'loading') {
-      return '';
+      return `Searching for "${executedQuery}"...`;
     }
     if (status === 'error') {
-      return 'Search failed. Try again.';
+      return `Search failed for "${executedQuery}". Try again.`;
     }
     if (!results.length) {
-      return '';
+      return `No results for "${executedQuery}".`;
     }
-    return '';
-  }, [inputValue, query, results.length, status]);
+    return `${results.length} result${results.length === 1 ? '' : 's'} for "${executedQuery}".`;
+  }, [executedQuery, results.length, status]);
 
-  const hasResults = results.length > 0;
+  const hasSearchSession = executedQuery.length > 0;
+  const shellStyle = {
+    '--search-keyboard-offset': `${keyboardInset}px`
+  } as CSSProperties;
+  const statusTone =
+    status === 'loading' ? 'loading' : status === 'error' ? 'error' : hasSearchSession ? 'complete' : 'idle';
 
   return (
     <motion.section
-      className={`search-shell screen-layer ${hasResults ? 'has-results' : 'is-empty'}`}
+      className={`search-shell screen-layer${hasSearchSession ? '' : ' is-empty'}`}
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 12 }}
+      style={shellStyle}
       onTouchStart={pinch.onTouchStart}
       onTouchMove={pinch.onTouchMove}
       onTouchEnd={pinch.onTouchEnd}
@@ -133,28 +140,9 @@ export const RecipeSearchScreen = ({
     >
       <header className="search-header">
         <h2>Search recipes</h2>
-        <form className={`search-form ${hasResults ? 'is-floating' : 'is-centered'}`} onSubmit={handleSubmit}>
-          <input
-            ref={inputRef}
-            type="search"
-            className="search-input"
-            placeholder="Search recipes"
-            aria-label="Search recipes"
-            value={inputValue}
-            onChange={(event) => setInputValue(event.target.value)}
-          />
-          <button
-            type="submit"
-            className="solid-button search-submit-button"
-            disabled={status === 'loading' || inputValue.trim().length < 2}
-          >
-            Search
-          </button>
-        </form>
       </header>
 
       <div className="search-results">
-        {resultsLabel ? <p className="muted search-empty">{resultsLabel}</p> : null}
         {results.map((result) => (
           <button
             key={result.url}
@@ -174,6 +162,33 @@ export const RecipeSearchScreen = ({
             </div>
           </button>
         ))}
+      </div>
+
+      <div className={`search-dock ${hasSearchSession ? 'is-floating' : 'is-centered'}`}>
+        <form className="search-form" onSubmit={handleSubmit} aria-busy={status === 'loading'}>
+          <input
+            ref={inputRef}
+            type="search"
+            className="search-input"
+            placeholder="Search recipes"
+            aria-label="Search recipes"
+            enterKeyHint="search"
+            value={inputValue}
+            onChange={(event) => setInputValue(event.target.value)}
+          />
+          <button
+            type="submit"
+            className="solid-button search-submit-button"
+            disabled={status === 'loading' || inputValue.trim().length < 2}
+          >
+            {status === 'loading' ? 'Searching...' : 'Search'}
+          </button>
+        </form>
+        {statusMessage ? (
+          <p className={`search-status is-${statusTone}`} role="status" aria-live="polite">
+            {statusMessage}
+          </p>
+        ) : null}
       </div>
     </motion.section>
   );

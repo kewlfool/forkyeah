@@ -2487,16 +2487,16 @@ textarea {
 }
 
 .search-shell {
+  --search-keyboard-offset: 0px;
   display: flex;
   flex-direction: column;
   gap: 12px;
   background: var(--bg);
-  padding-bottom: calc(env(safe-area-inset-bottom) + 12px);
+  padding-bottom: calc(env(safe-area-inset-bottom) + 12px + var(--search-keyboard-offset));
 }
 
 .search-header {
   display: grid;
-  gap: 10px;
   flex: 0 0 auto;
 }
 
@@ -2505,29 +2505,30 @@ textarea {
   font-size: 1.1rem;
 }
 
-.search-form {
+.search-dock {
+  flex: 0 0 auto;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
-  align-items: center;
+  gap: 8px;
 }
 
-.search-form.is-centered {
+.search-dock.is-centered {
   margin: auto 0;
 }
 
-.search-form.is-floating {
-  position: fixed;
-  left: calc((100vw - min(540px, 100vw)) / 2 + 12px + env(safe-area-inset-left));
-  right: calc((100vw - min(540px, 100vw)) / 2 + 12px + env(safe-area-inset-right));
-  bottom: calc(env(safe-area-inset-bottom) + 18px);
-  z-index: 12;
+.search-dock.is-floating {
   padding: 10px;
   border: 1px solid var(--stroke);
   border-radius: 18px;
   background: color-mix(in srgb, var(--surface) 94%, white 6%);
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
   backdrop-filter: blur(10px);
+}
+
+.search-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
 }
 
 .search-input {
@@ -2557,15 +2558,39 @@ textarea {
   overflow-y: auto;
   display: grid;
   gap: 12px;
-  padding-bottom: 20px;
+  padding-bottom: 4px;
 }
 
 .search-shell.is-empty .search-results {
   display: none;
 }
 
-.search-shell.has-results .search-results {
-  padding-bottom: calc(env(safe-area-inset-bottom) + 92px);
+.search-status {
+  min-height: 18px;
+  margin: 0;
+  padding: 0 4px;
+  font-size: 0.74rem;
+  color: var(--ink-soft);
+}
+
+.search-status.is-loading,
+.search-status.is-complete {
+  color: var(--accent);
+}
+
+.search-status.is-loading::before {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 8px;
+  border-radius: 999px;
+  background: currentColor;
+  animation: search-status-pulse 1s ease-in-out infinite;
+}
+
+.search-status.is-error {
+  color: color-mix(in srgb, var(--ink) 45%, #c62828 55%);
 }
 
 .search-result-card {
@@ -2609,9 +2634,17 @@ textarea {
 }
 
 
-.search-empty {
-  text-align: center;
-  padding: 20px 0;
+@keyframes search-status-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.88);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .search-confirm-overlay {
