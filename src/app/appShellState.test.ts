@@ -11,6 +11,8 @@ const buildRecipe = (): Recipe => ({
   id: 'recipe-1',
   title: 'Test recipe',
   description: '',
+  author: '',
+  source: '',
   imageUrl: '',
   ingredients: ['Salt'],
   steps: ['Cook'],
@@ -28,6 +30,8 @@ const buildRecipe = (): Recipe => ({
 const buildDraft = (): RecipeStagingDraft => ({
   title: 'Draft',
   description: '',
+  author: '',
+  source: 'Manual',
   imageUrl: '',
   ingredients: [],
   steps: [],

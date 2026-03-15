@@ -1,4 +1,4 @@
-const c=`<!DOCTYPE html>
+const a=`<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
@@ -96,8 +96,9 @@ h1 {
 }
 
 .ingredients {
-  columns: 2;
-  column-gap: 40px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 40px;
 }
 
 .ingredients li {
@@ -126,6 +127,33 @@ h1 {
   font-style: italic;
 }
 
+.recipe-footer-meta {
+  display: grid;
+  gap: 10px;
+  margin-top: 30px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.footer-meta-item {
+  display: grid;
+  gap: 4px;
+}
+
+.footer-meta-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #6b7280;
+}
+
+.footer-meta-value {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #1e2430;
+  overflow-wrap: anywhere;
+}
+
 @media print {
   body {
     background: white;
@@ -141,7 +169,7 @@ h1 {
 
 @media (max-width: 720px) {
   .ingredients {
-    columns: 1;
+    grid-template-columns: 1fr;
   }
 }
 </style>
@@ -196,16 +224,21 @@ h1 {
 
 {{nutrientsSection}}
 
+{{footerMetaBlock}}
+
 </div>
 
 {{printScript}}
 
 </body>
 </html>
-`,t=n=>n.replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;"),d=(n,e="None")=>n.length?n.map(i=>`<li>${t(i)}</li>`).join(`
-`):`<li class="muted-empty">${t(e)}</li>`,l=n=>n.trim()?`<p class="description">${t(n.trim())}</p>`:"",p=n=>n.length?`<div class="tags">${t(n.join(" • "))}</div>`:"",m=(n,e)=>e!=null&&e.trim()?['<div class="image">',`  <img src="${t(e.trim())}" alt="${t(n)}" />`,"</div>"].join(`
-`):"",g=n=>n.length?['<div class="section">',"<h2>Nutrients</h2>",'<ul class="nutrients">',d(n),"</ul>","</div>"].join(`
-`):"",u=`<script>
+`,i=n=>n.replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;"),s=(n,e="None")=>n.length?n.map(t=>`<li>${i(t)}</li>`).join(`
+`):`<li class="muted-empty">${i(e)}</li>`,d=n=>n.trim()?`<p class="description">${i(n.trim())}</p>`:"",l=n=>n.length?`<div class="tags">${i(n.join(" • "))}</div>`:"",p=(n,e)=>e!=null&&e.trim()?['<div class="image">',`  <img src="${i(e.trim())}" alt="${i(n)}" />`,"</div>"].join(`
+`):"",c=n=>n.length?['<div class="section">',"<h2>Nutrients</h2>",'<ul class="nutrients">',s(n),"</ul>","</div>"].join(`
+`):"",m=(n,e)=>{const t=n.trim(),o=e.trim();if(!t&&!o)return"";const r=[];return t&&r.push(['<div class="footer-meta-item">','  <span class="footer-meta-label">Author</span>',`  <span class="footer-meta-value">${i(t)}</span>`,"</div>"].join(`
+`)),o&&r.push(['<div class="footer-meta-item">','  <span class="footer-meta-label">Source</span>',`  <span class="footer-meta-value">${i(o)}</span>`,"</div>"].join(`
+`)),['<div class="recipe-footer-meta">',...r,"</div>"].join(`
+`)},g=`<script>
 (function () {
   const triggerPrint = () => {
     window.setTimeout(() => {
@@ -245,4 +278,4 @@ h1 {
     window.setTimeout(() => window.close(), 120);
   }, { once: true });
 })();
-<\/script>`,x=(n,e)=>{let i=n;for(const[r,o]of Object.entries(e))i=i.replaceAll(`{{${r}}}`,o);return i},b=n=>{var e,i,r;try{const o=n.title.trim()||"Untitled recipe",a=x(c,{documentTitle:t(o),title:t(o),descriptionBlock:l(n.description??""),tagsBlock:p(n.tags??[]),imageBlock:m(o,n.imageUrl),prepTime:t(((e=n.prepTime)==null?void 0:e.trim())||"—"),cookTime:t(((i=n.cookTime)==null?void 0:i.trim())||"—"),ingredients:d(n.ingredients??[]),steps:d(n.steps??[]),notes:(r=n.notes)!=null&&r.trim()?t(n.notes.trim()):'<p class="muted-empty">None</p>',nutrientsSection:g(n.nutrients??[]),printScript:u}),s=window.open("","_blank","width=960,height=1200");if(!s){console.error("Recipe export window was blocked");return}s.document.open(),s.document.write(a),s.document.close()}catch(o){console.error("Recipe export failed",o)}};export{b as exportRecipeToPdf};
+<\/script>`,u=(n,e)=>{let t=n;for(const[o,r]of Object.entries(e))t=t.replaceAll(`{{${o}}}`,r);return t},f=n=>{var t,o,r;const e=n.title.trim()||"Untitled recipe";return u(a,{documentTitle:i(e),title:i(e),descriptionBlock:d(n.description??""),tagsBlock:l(n.tags??[]),imageBlock:p(e,n.imageUrl),prepTime:i(((t=n.prepTime)==null?void 0:t.trim())||"—"),cookTime:i(((o=n.cookTime)==null?void 0:o.trim())||"—"),ingredients:s(n.ingredients??[]),steps:s(n.steps??[]),notes:(r=n.notes)!=null&&r.trim()?i(n.notes.trim()):'<p class="muted-empty">None</p>',nutrientsSection:c(n.nutrients??[]),footerMetaBlock:m(n.author??"",n.source??""),printScript:g})},x=n=>{try{const e=f(n),t=window.open("","_blank","width=960,height=1200");if(!t){console.error("Recipe export window was blocked");return}t.document.open(),t.document.write(e),t.document.close()}catch(e){console.error("Recipe export failed",e)}};export{f as buildRecipeExportHtml,x as exportRecipeToPdf};

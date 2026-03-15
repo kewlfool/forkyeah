@@ -38,6 +38,8 @@ interface ImportAttempt {
 const buildStagingDraft = (parsed: ParsedRecipeDraft): RecipeStagingDraft => ({
   title: parsed.title,
   description: parsed.description,
+  author: parsed.author,
+  source: parsed.source || parsed.sourceLabel,
   imageUrl: parsed.imageUrl,
   ingredients: parsed.ingredients,
   steps: parsed.steps,
@@ -57,6 +59,8 @@ const buildStagingDraft = (parsed: ParsedRecipeDraft): RecipeStagingDraft => ({
 const buildEditingDraft = (recipe: Recipe): RecipeStagingDraft => ({
   title: recipe.title ?? '',
   description: recipe.description ?? '',
+  author: recipe.author ?? '',
+  source: recipe.source ?? '',
   imageUrl: recipe.imageUrl ?? '',
   ingredients: recipe.ingredients ?? [],
   steps: recipe.steps ?? [],
@@ -75,6 +79,8 @@ const buildEditingDraft = (recipe: Recipe): RecipeStagingDraft => ({
 const buildManualDraft = (): RecipeStagingDraft => ({
   title: '',
   description: '',
+  author: '',
+  source: 'Manual',
   imageUrl: '',
   ingredients: [],
   steps: [],
@@ -384,6 +390,8 @@ const AppContent = (): JSX.Element => {
     updateRecipe(recipeId, {
       title: recipe.title,
       description: recipe.description,
+      author: recipe.author,
+      source: recipe.source,
       imageUrl,
       ingredients: recipe.ingredients,
       steps: recipe.steps,

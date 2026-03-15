@@ -10,6 +10,8 @@ export interface RecipeImportInput {
 export interface ParsedRecipeDraft {
   title: string;
   description: string;
+  author: string;
+  source: string;
   imageUrl?: string;
   ingredients: string[];
   steps: string[];
@@ -177,6 +179,8 @@ const splitTags = (value: string): string[] =>
 const baseDraft = (sourceLabel: string, sourceType: RecipeParseSource): ParsedRecipeDraft => ({
   title: '',
   description: '',
+  author: '',
+  source: sourceLabel,
   imageUrl: '',
   ingredients: [],
   steps: [],
@@ -422,6 +426,8 @@ const parseRecipeFromText = (
 interface BackendRecipeResponse {
   title?: string;
   description?: string;
+  author?: string;
+  source?: string;
   imageUrl?: string;
   ingredients?: string[];
   steps?: string[];
@@ -560,6 +566,8 @@ const fetchRecipeFromBackend = async (url: string): Promise<BackendFetchResult> 
     const draft = baseDraft(data.sourceLabel ?? url, 'url');
     draft.title = data.title?.trim() || deriveTitleFromUrl(url);
     draft.description = data.description?.trim() || '';
+    draft.author = data.author?.trim() || '';
+    draft.source = data.source?.trim() || data.sourceLabel?.trim() || url;
     draft.imageUrl = data.imageUrl?.trim() || '';
     draft.ingredients = normalizeList(data.ingredients ?? []);
     draft.steps = normalizeList(data.steps ?? []);

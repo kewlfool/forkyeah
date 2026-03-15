@@ -8,6 +8,8 @@ const buildRecipe = (overrides?: Partial<Recipe>): Recipe => ({
   title: 'Test recipe',
   description:
     'Very long description text that should overflow the clamped area when rendered inside the recipe header for testing.',
+  author: '',
+  source: '',
   imageUrl: '',
   ingredients: ['Salt'],
   steps: ['Cook'],

@@ -6,6 +6,8 @@ export interface Recipe {
   id: string;
   title: string;
   description: string;
+  author: string;
+  source: string;
   imageUrl?: string;
   ingredients: string[];
   steps: string[];

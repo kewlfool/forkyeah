@@ -129,6 +129,8 @@ export const RecipeScreen = ({ recipe, onClose }: RecipeScreenProps): JSX.Elemen
   const buildRecipeInput = (overrides: Partial<RecipeInput>): RecipeInput => ({
     title: recipe.title,
     description: recipe.description,
+    author: recipe.author,
+    source: recipe.source,
     imageUrl: recipe.imageUrl,
     ingredients: recipe.ingredients,
     steps: recipe.steps,

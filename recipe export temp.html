@@ -96,8 +96,9 @@ h1 {
 }
 
 .ingredients {
-  columns: 2;
-  column-gap: 40px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 40px;
 }
 
 .ingredients li {
@@ -126,6 +127,33 @@ h1 {
   font-style: italic;
 }
 
+.recipe-footer-meta {
+  display: grid;
+  gap: 10px;
+  margin-top: 30px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.footer-meta-item {
+  display: grid;
+  gap: 4px;
+}
+
+.footer-meta-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #6b7280;
+}
+
+.footer-meta-value {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #1e2430;
+  overflow-wrap: anywhere;
+}
+
 @media print {
   body {
     background: white;
@@ -141,7 +169,7 @@ h1 {
 
 @media (max-width: 720px) {
   .ingredients {
-    columns: 1;
+    grid-template-columns: 1fr;
   }
 }
 </style>
@@ -195,6 +223,8 @@ h1 {
 </div>
 
 {{nutrientsSection}}
+
+{{footerMetaBlock}}
 
 </div>
 

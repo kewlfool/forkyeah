@@ -137,6 +137,60 @@ def first_non_empty(*values: Optional[str]) -> str:
     return ""
 
 
+def extract_author_name(value: Any) -> str:
+    if not value:
+        return ""
+
+    if isinstance(value, str):
+        return value.strip()
+
+    if isinstance(value, list):
+        names: List[str] = []
+        seen = set()
+        for item in value:
+            name = extract_author_name(item)
+            if not name:
+                continue
+            key = name.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            names.append(name)
+        return ", ".join(names)
+
+    if isinstance(value, dict):
+        given_name = first_non_empty(value.get("givenName"))
+        family_name = first_non_empty(value.get("familyName"))
+        full_name = " ".join(part for part in (given_name, family_name) if part).strip()
+        return first_non_empty(full_name, extract_author_name(value.get("name")))
+
+    return ""
+
+
+def extract_source_name(value: Any) -> str:
+    if not value:
+        return ""
+
+    if isinstance(value, str):
+        return value.strip()
+
+    if isinstance(value, list):
+        for item in value:
+            name = extract_source_name(item)
+            if name:
+                return name
+        return ""
+
+    if isinstance(value, dict):
+        return first_non_empty(
+            extract_source_name(value.get("name")),
+            extract_source_name(value.get("legalName")),
+            extract_source_name(value.get("alternateName")),
+        )
+
+    return ""
+
+
 def humanize_nutrient_key(value: str) -> str:
     if not value:
         return ""
@@ -213,6 +267,8 @@ def base_recipe_response(source_label: str) -> Dict[str, Any]:
     return {
         "title": "",
         "description": "",
+        "author": "",
+        "source": "",
         "imageUrl": "",
         "ingredients": [],
         "steps": [],
@@ -237,7 +293,7 @@ def fill_missing_fields(target: Dict[str, Any], candidate: Dict[str, Any]) -> No
     if not candidate:
         return
 
-    for key in ("title", "description", "imageUrl", "prepTime", "cookTime", "notes", "rawContent"):
+    for key in ("title", "description", "author", "source", "imageUrl", "prepTime", "cookTime", "notes", "rawContent"):
         if not target.get(key) and candidate.get(key):
             target[key] = candidate[key]
 
@@ -259,6 +315,8 @@ def finalize_recipe_response(data: Dict[str, Any], source_label: str) -> Dict[st
     data["tags"] = normalize_tags([*data.get("tags", []), *data["categories"], *data["cuisines"]])
     data["title"] = first_non_empty(data.get("title"), derive_title_from_url(source_label))
     data["description"] = first_non_empty(data.get("description"))
+    data["author"] = first_non_empty(data.get("author"))
+    data["source"] = first_non_empty(data.get("source"), source_label)
     data["prepTime"] = first_non_empty(data.get("prepTime"))
     data["cookTime"] = first_non_empty(data.get("cookTime"))
     data["notes"] = first_non_empty(data.get("notes"))
@@ -424,6 +482,11 @@ def extract_recipe_from_json_ld(html: str, source_label: str) -> Dict[str, Any]:
         draft = base_recipe_response(source_label)
         draft["title"] = first_non_empty(recipe.get("name"))
         draft["description"] = first_non_empty(recipe.get("description"))
+        draft["author"] = extract_author_name(recipe.get("author"))
+        draft["source"] = first_non_empty(
+            extract_source_name(recipe.get("publisher")),
+            extract_source_name(recipe.get("isPartOf")),
+        )
         draft["imageUrl"] = extract_image_url(recipe.get("image"))
         draft["ingredients"] = normalize_list(to_string_list(recipe.get("recipeIngredient")))
         draft["steps"] = normalize_list(collect_instructions(recipe.get("recipeInstructions")))
@@ -663,6 +726,18 @@ def extract_meta_fallback(parsed_html: HtmlRecipeParser, source_label: str) -> D
         meta.get("og:description"),
         meta.get("twitter:description"),
     )
+    draft["author"] = first_non_empty(
+        meta.get("author"),
+        meta.get("article:author"),
+        meta.get("parsely-author"),
+        meta.get("sailthru.author"),
+    )
+    draft["source"] = first_non_empty(
+        meta.get("og:site_name"),
+        meta.get("application-name"),
+        meta.get("apple-mobile-web-app-title"),
+        meta.get("publisher"),
+    )
     draft["imageUrl"] = first_non_empty(meta.get("og:image"), meta.get("twitter:image"), meta.get("image"))
     draft["categories"] = normalize_tags(categories)
     draft["cuisines"] = normalize_tags(cuisines)
@@ -698,6 +773,11 @@ def extract_recipe_from_scraper(html: str, url: str) -> Dict[str, Any]:
     nutrients = safe_call(getattr(scraper, "nutrients", None), None)
     prep_time = format_minutes(safe_call(scraper.prep_time))
     cook_time = format_minutes(safe_call(scraper.cook_time))
+    author = extract_author_name(safe_call(getattr(scraper, "author", None), ""))
+    source = first_non_empty(
+        extract_source_name(safe_call(getattr(scraper, "site_name", None), "")),
+        extract_source_name(safe_call(getattr(scraper, "host", None), "")),
+    )
 
     steps = structured_steps or normalize_step_list(instructions_text.splitlines())
     raw_instructions = instructions_text.strip() or "\n".join(steps)
@@ -714,6 +794,8 @@ def extract_recipe_from_scraper(html: str, url: str) -> Dict[str, Any]:
 
     draft["title"] = title
     draft["description"] = description
+    draft["author"] = author
+    draft["source"] = source
     draft["imageUrl"] = image_url
     draft["ingredients"] = ingredients
     draft["steps"] = steps

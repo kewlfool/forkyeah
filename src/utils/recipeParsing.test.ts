@@ -31,6 +31,8 @@ describe('parseRecipeImport', () => {
       new Response(
         JSON.stringify({
           title: 'Unsupported recipe',
+          author: 'Test Author',
+          source: 'Example Kitchen',
           ingredients: [],
           steps: [],
           sourceLabel: 'https://example.com/recipe'
@@ -47,6 +49,8 @@ describe('parseRecipeImport', () => {
     expect(result.kind).toBe('draft');
     if (result.kind === 'draft') {
       expect(result.draft.title).toBe('Unsupported recipe');
+      expect(result.draft.author).toBe('Test Author');
+      expect(result.draft.source).toBe('Example Kitchen');
       expect(result.draft.importWarning).toContain('Website not supported');
     }
   });

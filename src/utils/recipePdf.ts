@@ -60,6 +60,44 @@ const renderNutrientsSection = (nutrients: string[]): string => {
   ].join('\n');
 };
 
+const renderFooterMetaBlock = (author: string, source: string): string => {
+  const trimmedAuthor = author.trim();
+  const trimmedSource = source.trim();
+
+  if (!trimmedAuthor && !trimmedSource) {
+    return '';
+  }
+
+  const items: string[] = [];
+  if (trimmedAuthor) {
+    items.push(
+      [
+        '<div class="footer-meta-item">',
+        '  <span class="footer-meta-label">Author</span>',
+        `  <span class="footer-meta-value">${escapeHtml(trimmedAuthor)}</span>`,
+        '</div>'
+      ].join('\n')
+    );
+  }
+
+  if (trimmedSource) {
+    items.push(
+      [
+        '<div class="footer-meta-item">',
+        '  <span class="footer-meta-label">Source</span>',
+        `  <span class="footer-meta-value">${escapeHtml(trimmedSource)}</span>`,
+        '</div>'
+      ].join('\n')
+    );
+  }
+
+  return [
+    '<div class="recipe-footer-meta">',
+    ...items,
+    '</div>'
+  ].join('\n');
+};
+
 const PRINT_SCRIPT = `<script>
 (function () {
   const triggerPrint = () => {
@@ -110,26 +148,30 @@ const renderTemplate = (template: string, replacements: Record<string, string>):
   return output;
 };
 
+export const buildRecipeExportHtml = (recipe: Recipe): string => {
+  const title = recipe.title.trim() || 'Untitled recipe';
+  return renderTemplate(recipeExportTemplate, {
+    documentTitle: escapeHtml(title),
+    title: escapeHtml(title),
+    descriptionBlock: renderDescriptionBlock(recipe.description ?? ''),
+    tagsBlock: renderTagsBlock(recipe.tags ?? []),
+    imageBlock: renderImageBlock(title, recipe.imageUrl),
+    prepTime: escapeHtml(recipe.prepTime?.trim() || '—'),
+    cookTime: escapeHtml(recipe.cookTime?.trim() || '—'),
+    ingredients: renderListItems(recipe.ingredients ?? []),
+    steps: renderListItems(recipe.steps ?? []),
+    notes: recipe.notes?.trim()
+      ? escapeHtml(recipe.notes.trim())
+      : '<p class="muted-empty">None</p>',
+    nutrientsSection: renderNutrientsSection(recipe.nutrients ?? []),
+    footerMetaBlock: renderFooterMetaBlock(recipe.author ?? '', recipe.source ?? ''),
+    printScript: PRINT_SCRIPT
+  });
+};
+
 export const exportRecipeToPdf = (recipe: Recipe): void => {
   try {
-    const title = recipe.title.trim() || 'Untitled recipe';
-    const rendered = renderTemplate(recipeExportTemplate, {
-      documentTitle: escapeHtml(title),
-      title: escapeHtml(title),
-      descriptionBlock: renderDescriptionBlock(recipe.description ?? ''),
-      tagsBlock: renderTagsBlock(recipe.tags ?? []),
-      imageBlock: renderImageBlock(title, recipe.imageUrl),
-      prepTime: escapeHtml(recipe.prepTime?.trim() || '—'),
-      cookTime: escapeHtml(recipe.cookTime?.trim() || '—'),
-      ingredients: renderListItems(recipe.ingredients ?? []),
-      steps: renderListItems(recipe.steps ?? []),
-      notes: recipe.notes?.trim()
-        ? escapeHtml(recipe.notes.trim())
-        : '<p class="muted-empty">None</p>',
-      nutrientsSection: renderNutrientsSection(recipe.nutrients ?? []),
-      printScript: PRINT_SCRIPT
-    });
-
+    const rendered = buildRecipeExportHtml(recipe);
     const exportWindow = window.open('', '_blank', 'width=960,height=1200');
     if (!exportWindow) {
       console.error('Recipe export window was blocked');

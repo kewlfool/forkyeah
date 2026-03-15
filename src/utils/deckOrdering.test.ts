@@ -6,6 +6,8 @@ const buildRecipe = (id: string): Recipe => ({
   id,
   title: id,
   description: '',
+  author: '',
+  source: '',
   imageUrl: '',
   ingredients: [],
   steps: [],

@@ -21,6 +21,8 @@ export const normalizeRecipe = (recipe: Recipe): Recipe => {
     ...recipe,
     title: recipe.title?.trim() ?? '',
     description: recipe.description?.trim() ?? '',
+    author: recipe.author?.trim() ?? '',
+    source: recipe.source?.trim() ?? '',
     imageUrl: recipe.imageUrl?.trim() ?? '',
     ingredients: ensureStringArray(recipe.ingredients),
     steps: ensureStringArray(recipe.steps),

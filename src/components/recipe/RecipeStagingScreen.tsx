@@ -12,6 +12,8 @@ import {
 export interface RecipeStagingDraft {
   title: string;
   description: string;
+  author: string;
+  source: string;
   imageUrl?: string;
   ingredients: string[];
   steps: string[];
@@ -64,6 +66,8 @@ export const RecipeStagingScreen = ({
 
   const [title, setTitle] = useState(draft.title);
   const [description, setDescription] = useState(draft.description);
+  const [author, setAuthor] = useState(draft.author);
+  const [source, setSource] = useState(draft.source);
   const [imageUrl, setImageUrl] = useState(draft.imageUrl ?? '');
   const [tagsInput, setTagsInput] = useState(draft.tags.join(', '));
   const [categoriesInput, setCategoriesInput] = useState(draft.categories.join(', '));
@@ -82,6 +86,8 @@ export const RecipeStagingScreen = ({
     setIsEditing(mode === 'edit' ? true : startEditing);
     setTitle(draft.title);
     setDescription(draft.description);
+    setAuthor(draft.author);
+    setSource(draft.source);
     setImageUrl(draft.imageUrl ?? '');
     setTagsInput(draft.tags.join(', '));
     setCategoriesInput(draft.categories.join(', '));
@@ -135,6 +141,8 @@ export const RecipeStagingScreen = ({
     onAccept({
       title,
       description,
+      author,
+      source,
       imageUrl,
       ingredients,
       steps,
@@ -204,6 +212,28 @@ export const RecipeStagingScreen = ({
                 onChange={(event) => setDescription(event.target.value)}
                 className="list-input list-input-textarea"
                 placeholder="Short summary of the recipe"
+              />
+            </label>
+
+            <label className="form-field">
+              <span className="field-label">Author</span>
+              <input
+                type="text"
+                value={author}
+                onChange={(event) => setAuthor(event.target.value)}
+                className="list-input"
+                placeholder="e.g. Jane Doe"
+              />
+            </label>
+
+            <label className="form-field">
+              <span className="field-label">Source</span>
+              <input
+                type="text"
+                value={source}
+                onChange={(event) => setSource(event.target.value)}
+                className="list-input"
+                placeholder="e.g. https://example.com/recipe"
               />
             </label>
 
@@ -378,12 +408,13 @@ export const RecipeStagingScreen = ({
           </div>
         ) : (
           <div className="staging-card">
-            <div className="staging-title">
-              <div>
-                <h2>{titleDisplay}</h2>
-                {description.trim() ? <p className="muted">{description}</p> : null}
-                <p className="muted">Source: {draft.sourceLabel || 'Manual'}</p>
-              </div>
+              <div className="staging-title">
+                <div>
+                  <h2>{titleDisplay}</h2>
+                  {description.trim() ? <p className="muted">{description}</p> : null}
+                  {author.trim() ? <p className="muted">Author: {author}</p> : null}
+                  <p className="muted">Source: {source || draft.sourceLabel || 'Manual'}</p>
+                </div>
               <div className="staging-meta">
                 <span>Prep {prepTime || '—'}</span>
                 <span>Cook {cookTime || '—'}</span>

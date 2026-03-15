@@ -7,6 +7,8 @@ const buildRecipe = (overrides?: Partial<Recipe>): Recipe => ({
   id: 'recipe-1',
   title: 'Test recipe',
   description: 'A recipe description',
+  author: '',
+  source: '',
   imageUrl: '',
   ingredients: ['Salt'],
   steps: ['Cook'],
