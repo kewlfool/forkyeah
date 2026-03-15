@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Recipe } from '../../types/models';
 import { DeckScene } from './DeckScene';
 
-const buildRecipe = (): Recipe => ({
+const buildRecipe = (overrides?: Partial<Recipe>): Recipe => ({
   id: 'recipe-1',
   title: 'Test recipe',
   description: '',
@@ -18,7 +18,8 @@ const buildRecipe = (): Recipe => ({
   cookTime: '',
   notes: '',
   lastCooked: null,
-  createdAt: Date.now()
+  createdAt: Date.now(),
+  ...overrides
 });
 
 afterEach(() => {
@@ -104,5 +105,53 @@ describe('DeckScene', () => {
     fireEvent.mouseDown(document.body);
 
     expect(onExitEditMode).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows prep and cook metadata in grid mode instead of last cooked', () => {
+    render(
+      <DeckScene
+        mode="grid"
+        recipes={[buildRecipe({ prepTime: '5m', cookTime: '20m', lastCooked: Date.now() })]}
+        selectedRecipeId="recipe-1"
+        editingRecipeId={null}
+        onModeChange={vi.fn()}
+        onSelectRecipe={vi.fn()}
+        onOpenRecipe={vi.fn()}
+        onEnterEditMode={vi.fn()}
+        onExitEditMode={vi.fn()}
+        onEditRecipe={vi.fn()}
+        onDeleteRecipe={vi.fn()}
+        onRequestImage={vi.fn()}
+        onImport={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText((_, element) => element?.textContent === 'Prep 5m')).toBeInTheDocument();
+    expect(screen.getByText((_, element) => element?.textContent === 'Cook 20m')).toBeInTheDocument();
+    expect(screen.queryByText(/Last cooked:/i)).not.toBeInTheDocument();
+  });
+
+  it('shows prep, cook, and last cooked together in list mode', () => {
+    render(
+      <DeckScene
+        mode="list"
+        recipes={[buildRecipe({ prepTime: '5m', cookTime: '20m', lastCooked: Date.now() })]}
+        selectedRecipeId="recipe-1"
+        editingRecipeId={null}
+        onModeChange={vi.fn()}
+        onSelectRecipe={vi.fn()}
+        onOpenRecipe={vi.fn()}
+        onEnterEditMode={vi.fn()}
+        onExitEditMode={vi.fn()}
+        onEditRecipe={vi.fn()}
+        onDeleteRecipe={vi.fn()}
+        onRequestImage={vi.fn()}
+        onImport={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText((_, element) => element?.textContent === 'Prep 5m')).toBeInTheDocument();
+    expect(screen.getByText((_, element) => element?.textContent === 'Cook 20m')).toBeInTheDocument();
+    expect(screen.getByText(/Last cooked:/i)).toBeInTheDocument();
   });
 });

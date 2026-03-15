@@ -73,7 +73,13 @@ export const RecipeStackArticleLayout = ({
                   ))}
                 </div>
               ) : null}
-              <span className="recipe-title-meta">Last cooked: {formatCookedDate(recipe.lastCooked)}</span>
+              <div className="recipe-stack-meta">
+                <div className="recipe-stack-meta-primary">
+                  <span>Prep {recipe.prepTime || '—'}</span>
+                  <span>Cook {recipe.cookTime || '—'}</span>
+                </div>
+                <span className="recipe-title-meta">Last cooked: {formatCookedDate(recipe.lastCooked)}</span>
+              </div>
             </div>
           </header>
 

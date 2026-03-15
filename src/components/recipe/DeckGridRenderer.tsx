@@ -1,5 +1,4 @@
 import type { JSX } from 'react';
-import { formatCookedDate } from '../../utils/recipes';
 import { type DeckRendererProps, useDeckItemInteractions } from './deckShared';
 
 const collectCuisineTags = (cuisines: string[]): string[] => {
@@ -151,7 +150,10 @@ const DeckGridItem = ({
         <div className="deck-grid-copy">
           <strong>{recipe.title || 'Untitled recipe'}</strong>
           <div className="deck-grid-meta">
-            <span className="deck-grid-date">Last cooked: {formatCookedDate(recipe.lastCooked)}</span>
+            <div className="deck-grid-timing">
+              <span>Prep {recipe.prepTime || '—'}</span>
+              <span>Cook {recipe.cookTime || '—'}</span>
+            </div>
             {cuisines.length ? (
               <div className="deck-grid-cuisines">
                 {cuisines.map((cuisine) => (

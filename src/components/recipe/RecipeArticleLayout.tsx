@@ -1,9 +1,12 @@
-import type { HTMLAttributes, ReactNode, Ref } from 'react';
+import { useEffect, useRef, useState, type HTMLAttributes, type ReactNode, type Ref } from 'react';
 import type { Recipe } from '../../types/models';
+
+const DESCRIPTION_MAX_LINES = 4;
 
 interface RecipeArticleLayoutProps {
   recipe: Recipe;
-  lastCookedControl: ReactNode;
+  lastCookedValue: string;
+  onUpdateLastCooked: () => void;
   headerAction?: ReactNode;
   headerProps?: HTMLAttributes<HTMLElement>;
   titleProps?: HTMLAttributes<HTMLHeadingElement>;
@@ -31,7 +34,8 @@ const collectRecipeTags = (recipe: Recipe): string[] => {
 
 export const RecipeArticleLayout = ({
   recipe,
-  lastCookedControl,
+  lastCookedValue,
+  onUpdateLastCooked,
   headerAction,
   headerProps,
   titleProps,
@@ -47,6 +51,83 @@ export const RecipeArticleLayout = ({
 }: RecipeArticleLayoutProps): JSX.Element => {
   const displayTags = collectRecipeTags(recipe);
   const hasHeroImage = Boolean(recipe.imageUrl);
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+  const [descriptionOverflowing, setDescriptionOverflowing] = useState(false);
+  const descriptionRef = useRef<HTMLParagraphElement | null>(null);
+
+  useEffect(() => {
+    setDescriptionExpanded(false);
+  }, [recipe.id, recipe.description]);
+
+  useEffect(() => {
+    if (!showDescription || !recipe.description.trim() || typeof document === 'undefined') {
+      setDescriptionOverflowing(false);
+      return;
+    }
+
+    const element = descriptionRef.current;
+    if (!element) {
+      setDescriptionOverflowing(false);
+      return;
+    }
+
+    const measureOverflow = () => {
+      const activeElement = descriptionRef.current;
+      if (!activeElement) {
+        setDescriptionOverflowing(false);
+        return;
+      }
+
+      const width = Math.max(activeElement.clientWidth, Math.round(activeElement.getBoundingClientRect().width));
+      if (!width) {
+        setDescriptionOverflowing(false);
+        return;
+      }
+
+      const styles = window.getComputedStyle(activeElement);
+      const fontSize = Number.parseFloat(styles.fontSize) || 14;
+      const lineHeight = Number.parseFloat(styles.lineHeight);
+      const resolvedLineHeight = Number.isFinite(lineHeight) ? lineHeight : fontSize * 1.35;
+      const maxHeight = resolvedLineHeight * DESCRIPTION_MAX_LINES;
+
+      const clone = activeElement.cloneNode(true) as HTMLParagraphElement;
+      clone.classList.remove('is-collapsed');
+      clone.style.position = 'fixed';
+      clone.style.inset = '-9999px auto auto 0';
+      clone.style.visibility = 'hidden';
+      clone.style.pointerEvents = 'none';
+      clone.style.height = 'auto';
+      clone.style.maxHeight = 'none';
+      clone.style.overflow = 'visible';
+      clone.style.display = 'block';
+      clone.style.webkitLineClamp = 'unset';
+      clone.style.webkitBoxOrient = 'initial';
+      clone.style.width = `${width}px`;
+
+      document.body.appendChild(clone);
+      const fullHeight = clone.getBoundingClientRect().height;
+      clone.remove();
+
+      setDescriptionOverflowing(fullHeight > maxHeight + 1);
+    };
+
+    measureOverflow();
+
+    const resizeObserver =
+      typeof ResizeObserver !== 'undefined'
+        ? new ResizeObserver(() => {
+            measureOverflow();
+          })
+        : null;
+
+    resizeObserver?.observe(element);
+    window.addEventListener('resize', measureOverflow);
+
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener('resize', measureOverflow);
+    };
+  }, [recipe.description, showDescription]);
 
   return (
     <>
@@ -56,9 +137,21 @@ export const RecipeArticleLayout = ({
           {headerAction ?? null}
         </div>
         {showDescription && recipe.description.trim() ? (
-          <p className="recipe-description">{recipe.description}</p>
+          <div className="recipe-description-block">
+            <p ref={descriptionRef} className={`recipe-description${descriptionExpanded ? '' : ' is-collapsed'}`}>
+              {recipe.description}
+            </p>
+            {descriptionOverflowing ? (
+              <button
+                type="button"
+                className="recipe-description-toggle"
+                onClick={() => setDescriptionExpanded((current) => !current)}
+              >
+                {descriptionExpanded ? 'Show less' : 'Show more'}
+              </button>
+            ) : null}
+          </div>
         ) : null}
-        <div className="recipe-meta-row">{lastCookedControl}</div>
       </header>
 
       <div
@@ -80,14 +173,23 @@ export const RecipeArticleLayout = ({
             ) : null}
           </div>
           <div className="recipe-timing">
-            <div>
-              <span className="muted">Prep</span>
-              <strong>{recipe.prepTime || '—'}</strong>
+            <div className="recipe-timing-item">
+              <strong>Prep time</strong>
+              <span>{recipe.prepTime || '—'}</span>
             </div>
-            <div>
-              <span className="muted">Cook</span>
-              <strong>{recipe.cookTime || '—'}</strong>
+            <div className="recipe-timing-item">
+              <strong>Cook time</strong>
+              <span>{recipe.cookTime || '—'}</span>
             </div>
+            <button
+              type="button"
+              className="recipe-timing-item recipe-timing-button"
+              onClick={onUpdateLastCooked}
+              aria-label="Update last cooked date"
+            >
+              <strong>Last cooked</strong>
+              <span>{lastCookedValue}</span>
+            </button>
           </div>
         </div>
 

@@ -1318,13 +1318,14 @@ textarea {
 
 .recipe-stack-cuisines {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
-  max-height: 60px;
+  max-width: 100%;
   overflow: hidden;
 }
 
 .recipe-stack-cuisines span {
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   min-height: 26px;
@@ -1339,6 +1340,29 @@ textarea {
 .recipe-stack-header-copy h1 {
   margin: 0;
   font-size: 1.2rem;
+}
+
+.recipe-stack-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px 12px;
+  flex-wrap: wrap;
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+}
+
+.recipe-stack-meta-primary {
+  display: inline-flex;
+  gap: 10px;
+  min-width: 0;
+}
+
+.recipe-stack-meta-primary span {
+  white-space: nowrap;
+}
+
+.recipe-stack-meta .recipe-title-meta {
+  margin-left: auto;
 }
 
 .recipe-stack-header-swipe-zone {
@@ -1474,13 +1498,14 @@ textarea {
 
 .recipe-stack-preview-cuisines {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
-  max-height: 56px;
+  max-width: 100%;
   overflow: hidden;
 }
 
 .recipe-stack-preview-cuisines span {
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   min-height: 24px;
@@ -1490,6 +1515,28 @@ textarea {
   background: var(--surface-soft);
   font-size: 0.72rem;
   color: var(--ink);
+}
+
+.recipe-stack-preview-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px 12px;
+  flex-wrap: wrap;
+}
+
+.recipe-stack-preview-meta-primary {
+  display: inline-flex;
+  gap: 10px;
+  min-width: 0;
+}
+
+.recipe-stack-preview-meta-primary span,
+.recipe-stack-preview-meta span {
+  white-space: nowrap;
+}
+
+.recipe-stack-preview-meta > span:last-child {
+  margin-left: auto;
 }
 
 .recipe-stack-preview-ingredients {
@@ -1686,6 +1733,15 @@ textarea {
   font-size: 0.72rem;
 }
 
+.deck-list-meta-primary {
+  display: inline-flex;
+  gap: 10px;
+}
+
+.deck-list-date {
+  margin-left: auto;
+}
+
 .deck-list-meta span {
   white-space: nowrap;
 }
@@ -1777,6 +1833,18 @@ textarea {
   line-height: 1.25;
   font-size: 0.96rem;
   font-weight: 600;
+}
+
+.deck-grid-timing {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  color: var(--ink-soft);
+  font-size: 0.76rem;
+}
+
+.deck-grid-timing span {
+  white-space: nowrap;
 }
 
 .deck-grid-date {
@@ -2051,18 +2119,32 @@ textarea {
   color: var(--ink-soft);
 }
 
+.recipe-description-block {
+  display: grid;
+  gap: 4px;
+}
+
+.recipe-description.is-collapsed {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+
+.recipe-description-toggle {
+  justify-self: flex-start;
+  padding: 0;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--accent);
+  background: transparent;
+}
+
 .recipe-title-meta {
   font-size: 0.78rem;
   color: var(--ink-soft);
   white-space: nowrap;
   margin-left: auto;
-}
-
-.recipe-meta-row {
-  display: flex;
-  align-items: flex-end;
-  gap: 12px;
-  flex-wrap: wrap;
 }
 
 .recipe-tag-row {
@@ -2153,7 +2235,7 @@ textarea {
 
 .recipe-hero-image {
   width: 100%;
-  height: 100px;
+  height: 175px;
   border-radius: 16px;
   border: 1px solid var(--stroke);
   background: var(--surface-soft);
@@ -2267,14 +2349,36 @@ textarea {
 
 .recipe-timing {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 
-.recipe-timing strong {
-  display: block;
+.recipe-timing-item {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  text-align: left;
+}
+
+.recipe-timing-item strong {
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.recipe-timing-item span {
   font-size: 1rem;
-  margin-top: 2px;
+  font-weight: 400;
+}
+
+.recipe-timing-button {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: inherit;
+}
+
+.recipe-timing-button span {
+  white-space: nowrap;
 }
 
 .recipe-peek-overlay {
@@ -2467,13 +2571,6 @@ textarea {
 .cook-mode-action-button-primary {
   color: var(--ink);
   border-color: var(--stroke-strong);
-}
-
-.recipe-cooked-button {
-  background: transparent;
-  border: 0;
-  padding: 0;
-  text-align: right;
 }
 
 .search-shell {

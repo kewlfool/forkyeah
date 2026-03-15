@@ -119,7 +119,13 @@ const StackPreviewCard = ({
               ))}
             </div>
           ) : null}
-          <span>Last cooked: {formatCookedDate(recipe.lastCooked)}</span>
+          <div className="recipe-stack-preview-meta">
+            <div className="recipe-stack-preview-meta-primary">
+              <span>Prep {recipe.prepTime || '—'}</span>
+              <span>Cook {recipe.cookTime || '—'}</span>
+            </div>
+            <span>Last cooked: {formatCookedDate(recipe.lastCooked)}</span>
+          </div>
           {previewIngredients.length ? (
             <ul className="recipe-stack-preview-ingredients">
               {previewIngredients.map((ingredient, index) => (

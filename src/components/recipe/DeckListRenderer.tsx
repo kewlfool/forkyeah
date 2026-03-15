@@ -138,9 +138,11 @@ const DeckListItem = ({
             <span className="deck-list-muted">No tags</span>
           )}
           <div className="deck-list-meta">
+            <div className="deck-list-meta-primary">
+              <span>Prep {recipe.prepTime || '—'}</span>
+              <span>Cook {recipe.cookTime || '—'}</span>
+            </div>
             <span className="deck-list-date">Last cooked: {formatCookedDate(recipe.lastCooked)}</span>
-            <span>Prep {recipe.prepTime || '—'}</span>
-            <span>Cook {recipe.cookTime || '—'}</span>
           </div>
         </div>
       </div>

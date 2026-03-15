@@ -63,6 +63,23 @@ describe('RecipeStackScene', () => {
     expect(onOpenRecipe).not.toHaveBeenCalled();
   });
 
+  it('shows prep and cook on the left of the stack metadata row', () => {
+    const recipe = buildRecipe({ lastCooked: Date.now() });
+
+    render(
+      <RecipeStackScene
+        recipes={[recipe]}
+        selectedRecipeId={recipe.id}
+        onSelectRecipe={vi.fn()}
+        onOpenRecipe={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('Prep 5m')).toBeInTheDocument();
+    expect(screen.getByText('Cook 20m')).toBeInTheDocument();
+    expect(screen.getAllByText(/Last cooked:/i).length).toBeGreaterThan(0);
+  });
+
   it('does not open the recipe when tapping inside the ingredient body', () => {
     const recipe = buildRecipe();
     const onOpenRecipe = vi.fn();

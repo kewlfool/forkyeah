@@ -70,9 +70,9 @@ export const RecipeScreen = ({ recipe, onClose }: RecipeScreenProps): JSX.Elemen
     onLongPress: onClose
   });
 
-  const lastCookedLabel = useMemo(() => {
+  const lastCookedValue = useMemo(() => {
     if (!recipe.lastCooked) {
-      return 'Last cooked: Never';
+      return 'Never';
     }
 
     const cookedDate = new Date(recipe.lastCooked);
@@ -86,17 +86,17 @@ export const RecipeScreen = ({ recipe, onClose }: RecipeScreenProps): JSX.Elemen
     const dayDiff = Math.max(0, Math.round((startOfToday - startOfCooked) / (24 * 60 * 60 * 1000)));
 
     if (dayDiff === 0) {
-      return 'Cooked: Today';
+      return 'Today';
     }
     if (dayDiff === 1) {
-      return 'Cooked: Yesterday';
+      return 'Yesterday';
     }
 
-    return `Last cooked: ${cookedDate.toLocaleDateString(undefined, {
+    return cookedDate.toLocaleDateString(undefined, {
       month: 'short',
       day: 'numeric',
       year: 'numeric'
-    })}`;
+    });
   }, [recipe.lastCooked, uiState.nowTick]);
 
   useEffect(() => {
@@ -234,19 +234,11 @@ export const RecipeScreen = ({ recipe, onClose }: RecipeScreenProps): JSX.Elemen
             <Share2 size={16} />
           </button>
         }
-        lastCookedControl={
-          <button
-            type="button"
-            className="recipe-title-meta recipe-cooked-button"
-            onClick={() => {
-              dispatchUi({ type: 'reset-progress' });
-              updateRecipe(recipe.id, buildRecipeInput({ lastCooked: Date.now() }));
-            }}
-            aria-label="Update last cooked date"
-          >
-            {lastCookedLabel}
-          </button>
-        }
+        lastCookedValue={lastCookedValue}
+        onUpdateLastCooked={() => {
+          dispatchUi({ type: 'reset-progress' });
+          updateRecipe(recipe.id, buildRecipeInput({ lastCooked: Date.now() }));
+        }}
         ingredientsContent={
           <RecipeIngredientList
             ingredients={recipe.ingredients}
